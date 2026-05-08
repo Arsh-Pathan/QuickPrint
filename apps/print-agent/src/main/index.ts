@@ -1,5 +1,6 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell } from 'electron';
 import path from 'node:path';
+import { exec } from 'node:child_process';
 import log from 'electron-log';
 import { startAgent, stopAgent } from './agent';
 
@@ -53,6 +54,30 @@ function createTray() {
 app.whenReady().then(async () => {
   createWindow();
   createTray();
+  
+  // Register Docker Handlers
+  ipcMain.handle('docker:start', () => {
+    return new Promise((resolve, reject) => {
+      exec('docker-compose up -d --build', { cwd: path.join(__dirname, '../../../../') }, (error, stdout, stderr) => {
+        if (error) { log.error(error); reject(error.message); return; }
+        resolve(true);
+      });
+    });
+  });
+
+  ipcMain.handle('docker:stop', () => {
+    return new Promise((resolve, reject) => {
+      exec('docker-compose down', { cwd: path.join(__dirname, '../../../../') }, (error, stdout, stderr) => {
+        if (error) { log.error(error); reject(error.message); return; }
+        resolve(true);
+      });
+    });
+  });
+
+  ipcMain.on('admin:open', () => {
+    shell.openExternal('http://localhost:3001');
+  });
+
   await startAgent();
 });
 
@@ -60,9 +85,8 @@ app.on('before-quit', async () => {
   await stopAgent();
 });
 
-app.on('window-all-closed', (e: Event) => {
+app.on('window-all-closed', () => {
   // Keep agent running in background even when window closed
-  e.preventDefault();
 });
 
 declare global {

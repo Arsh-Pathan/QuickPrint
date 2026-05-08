@@ -8,29 +8,142 @@
       body {
         font-family: 'Segoe UI', system-ui, sans-serif;
         margin: 0;
-        padding: 24px;
+        padding: 32px;
         background: #0f172a;
         color: #e2e8f0;
       }
-      h1 { font-size: 18px; margin: 0 0 16px; }
-      .status { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 8px; background: #1e293b; }
-      .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; }
-      ul { margin: 16px 0 0; padding: 0; list-style: none; }
-      li { padding: 10px; border-bottom: 1px solid #1e293b; font-size: 13px; }
-      .muted { color: #94a3b8; }
+      h1 { font-size: 24px; margin: 0 0 8px; font-weight: 600; }
+      p { color: #94a3b8; font-size: 14px; margin: 0 0 24px; }
+      
+      .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #334155; }
+      .card-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 16px; }
+      
+      .status { display: flex; align-items: center; gap: 12px; }
+      .dot { width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+      .dot.loading { background: #eab308; box-shadow: 0 0 10px #eab308; animation: pulse 1s infinite; }
+      
+      @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+      
+      .controls { display: flex; gap: 12px; margin-top: 16px; }
+      
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 14px;
+      }
+      
+      .btn-primary { background: #3b82f6; color: white; }
+      .btn-primary:hover { background: #2563eb; }
+      .btn-primary:disabled { background: #1e3a8a; color: #64748b; cursor: not-allowed; }
+      
+      .btn-danger { background: #ef4444; color: white; }
+      .btn-danger:hover { background: #dc2626; }
+      
+      .btn-outline { background: transparent; border: 1px solid #3b82f6; color: #3b82f6; }
+      .btn-outline:hover { background: rgba(59, 130, 246, 0.1); }
+      
+      ul { margin: 0; padding: 0; list-style: none; max-height: 150px; overflow-y: auto; }
+      li { padding: 8px 0; border-bottom: 1px solid #334155; font-size: 13px; color: #cbd5e1; }
+      .muted { color: #64748b; }
     </style>
   </head>
   <body>
-    <h1>QuickPrint Agent</h1>
-    <div class="status">
-      <div class="dot"></div>
-      <div>
-        <div>Connected</div>
-        <div class="muted" id="shop">shop_local_dev</div>
+    <h1>Maddy's Master Dashboard</h1>
+    <p>Automated Print Shop Environment</p>
+
+    <!-- Cloud Infrastructure Controls -->
+    <div class="card">
+      <div class="card-title">Cloud System (Docker)</div>
+      <div class="status">
+        <div class="dot loading" id="docker-status"></div>
+        <div>
+          <div style="font-weight: 500;" id="docker-text">System Offline</div>
+          <div class="muted">Run the QuickPrint cloud servers locally</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn-primary" id="start-btn">▶ Start Server</button>
+        <button class="btn-danger" id="stop-btn">◼ Stop</button>
       </div>
     </div>
-    <ul id="log">
-      <li class="muted">Live activity will appear here.</li>
-    </ul>
+
+    <!-- Agent & Admin View -->
+    <div class="card">
+      <div class="card-title">Shop Connectivity</div>
+      <div class="status">
+        <div class="dot"></div>
+        <div>
+          <div style="font-weight: 500;">Hardware Connected</div>
+          <div class="muted" id="shop">Waiting for Jobs...</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn-outline" id="admin-btn">🌐 Open Admin Interface</button>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="card">
+      <div class="card-title">System Activity</div>
+      <ul id="log">
+        <li class="muted">System idle.</li>
+      </ul>
+    </div>
+
+    <script>
+      // Automatically subscribe to Agent background events
+      window.agent.subscribeStatus((status) => {
+        const log = document.getElementById('log');
+        const li = document.createElement('li');
+        li.innerText = JSON.stringify(status);
+        log.prepend(li);
+      });
+
+      // Bind UI Buttons to Electron OS Logic
+      document.getElementById('start-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('start-btn');
+        const status = document.getElementById('docker-status');
+        const text = document.getElementById('docker-text');
+        
+        btn.disabled = true;
+        btn.innerText = "Booting...";
+        status.className = "dot loading";
+        text.innerText = "Starting Cloud Systems... (May take 30s)";
+        
+        try {
+          // This tells Electron to securely run docker-compose in Windows!
+          await window.agent.dockerStart();
+          
+          btn.innerText = "▶ Start Server";
+          btn.disabled = false;
+          status.className = "dot";
+          status.style.background = "#22c55e";
+          text.innerText = "System Online & Running!";
+        } catch (e) {
+          btn.innerText = "▶ Try Again";
+          btn.disabled = false;
+          text.innerText = "Error starting server";
+          status.style.background = "#ef4444";
+        }
+      });
+
+      document.getElementById('stop-btn').addEventListener('click', async () => {
+        document.getElementById('docker-status').className = "dot loading";
+        document.getElementById('docker-text').innerText = "Shutting down...";
+        await window.agent.dockerStop();
+        document.getElementById('docker-status').className = "dot";
+        document.getElementById('docker-status').style.background = "#64748b";
+        document.getElementById('docker-text').innerText = "System Offline";
+      });
+
+      document.getElementById('admin-btn').addEventListener('click', () => {
+        window.agent.openAdmin();
+      });
+    </script>
   </body>
 </html>

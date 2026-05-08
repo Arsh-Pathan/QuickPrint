@@ -34,7 +34,7 @@ export class QueueService {
     });
 
     let cumPages = 0;
-    return entries.map((e) => {
+    return entries.map((e: any) => {
       const eta = cumPages * SECONDS_PER_PAGE;
       cumPages += e.job.pages * e.job.copies;
       return { ...e, etaSeconds: eta };

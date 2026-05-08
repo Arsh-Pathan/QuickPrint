@@ -34,7 +34,7 @@ export class PrintJobsService {
         color: dto.settings.color,
         duplex: dto.settings.duplex,
         copies: dto.settings.copies,
-        paperSize: dto.settings.paperSize,
+        paperSize: dto.settings.paperSize?.toUpperCase() as any,
         pageRange: dto.settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
         priceBreakdown: breakdown as unknown as object,

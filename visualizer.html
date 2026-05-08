@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickPrint - Print Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --primary: #1a73e8;
+            --text-main: #202124;
+            --text-sec: #5f6368;
+            --border: #dadce0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: 'Google Sans', sans-serif;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-weight: 500;
+            margin: 0 0 8px 0;
+        }
+
+        .header p {
+            color: var(--text-sec);
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .visualizer-container {
+            display: flex;
+            gap: 40px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            flex: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            font-weight: 500;
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Printer Animation */
+        .printer-sim {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 220px;
+            position: relative;
+            margin-top: 40px;
+        }
+
+        .printer-body {
+            width: 140px;
+            height: 70px;
+            background: #f1f3f4;
+            border-radius: 12px;
+            border: 2px solid #dadce0;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .printer-body::after {
+            content: '';
+            width: 100px;
+            height: 8px;
+            background: #5f6368;
+            border-radius: 4px;
+            position: absolute;
+            bottom: 12px;
+        }
+
+        .paper-in {
+            width: 90px;
+            height: 50px;
+            background: #ffffff;
+            border: 1px solid #dadce0;
+            position: absolute;
+            top: -40px;
+            border-radius: 4px 4px 0 0;
+            z-index: 1;
+            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.02);
+        }
+
+        .paper-out {
+            width: 90px;
+            height: 0px;
+            background: #ffffff;
+            border: 1px solid var(--primary);
+            position: absolute;
+            top: 70px; /* Right below the body */
+            border-radius: 0 0 4px 4px;
+            z-index: 1;
+            transition: height 0.3s;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(26, 115, 232, 0.15);
+        }
+        
+        .paper-out .text-line {
+            width: 75%;
+            height: 4px;
+            background: var(--primary);
+            margin-top: 8px;
+            border-radius: 2px;
+            opacity: 0.8;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background: #34a853;
+            border-radius: 50%;
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            box-shadow: 0 0 6px rgba(52, 168, 83, 0.6);
+        }
+
+        .animating .paper-out {
+            animation: printSlide 3s ease-in-out infinite;
+        }
+
+        .animating .status-dot {
+            background: var(--primary);
+            box-shadow: 0 0 8px var(--primary);
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes printSlide {
+            0% { height: 0px; opacity: 1; }
+            80% { height: 90px; opacity: 1; }
+            95% { height: 90px; opacity: 0; }
+            100% { height: 0px; opacity: 0; }
+        }
+
+        @keyframes blink {
+            from { opacity: 1; }
+            to { opacity: 0.4; }
+        }
+
+        /* Logs */
+        .log-box {
+            height: 300px;
+            overflow-y: auto;
+            background: #f1f3f4;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .log-time {
+            color: #9aa0a6;
+            margin-right: 8px;
+        }
+
+        .log-info { color: var(--primary); }
+        .log-success { color: #34a853; font-weight: bold; }
+        .log-warn { color: #fbbc05; }
+        
+        .connection-status {
+            font-size: 13px;
+            font-weight: bold;
+            color: #ea4335;
+        }
+        .connected {
+            color: #34a853;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>QuickPrint System Visualizer</h1>
+        <p>Real-time simulation of the Queue & Print Agent</p>
+    </div>
+
+    <div class="visualizer-container">
+        
+        <!-- Left: Hardware Simulator -->
+        <div class="card">
+            <h2>Hardware Monitor: Local Agent <span id="conn-status" class="connection-status">Connecting...</span></h2>
+            
+            <div id="printer-sim" class="printer-sim">
+                <div class="paper-in"></div>
+                <div class="printer-body">
+                    <div class="status-dot"></div>
+                </div>
+                <div class="paper-out">
+                    <div class="text-line"></div>
+                    <div class="text-line"></div>
+                    <div class="text-line"></div>
+                    <div class="text-line"></div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <h3 id="current-job" style="margin: 0; color: var(--primary);">Idle</h3>
+                <p id="current-eta" style="margin: 5px 0 0 0; font-size: 14px; color: var(--text-sec);">Waiting for jobs...</p>
+            </div>
+        </div>
+
+        <!-- Right: Real-time Event Feed -->
+        <div class="card">
+            <h2>Live System Events</h2>
+            <div id="logbox" class="log-box">
+                <!-- Logs appended here -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const logBox = document.getElementById('logbox');
+        const printerSim = document.getElementById('printer-sim');
+        const currentJobText = document.getElementById('current-job');
+        const connStatus = document.getElementById('conn-status');
+
+        function addLog(type, message) {
+            const el = document.createElement('div');
+            el.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            el.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logBox.appendChild(el);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        // Connect to NestJS WebSocket Gateway (Namespace: /realtime)
+        const socket = io('http://localhost:4000/realtime', {
+            transports: ['websocket']
+        });
+
+        socket.on('connect', () => {
+            connStatus.textContent = 'CONNECTED';
+            connStatus.classList.add('connected');
+            addLog('success', 'Connected to QuickPrint Backend WS');
+            
+            // We subscribe to the local dev shop to see all queue updates
+            socket.emit('subscribe:shop', 'shop_local_dev');
+            addLog('info', 'Subscribed to shop: shop_local_dev');
+        });
+
+        socket.on('disconnect', () => {
+            connStatus.textContent = 'DISCONNECTED';
+            connStatus.classList.remove('connected');
+            addLog('warn', 'Lost connection to backend server');
+        });
+
+        // Event: Job Status updates
+        socket.on('job:status', (data) => {
+            addLog('info', `Job <b>${data.jobId.slice(0,8)}</b> changed status to: <b style="text-transform: uppercase;">${data.status}</b>`);
+            
+            if (data.status === 'printing') {
+                printerSim.classList.add('animating');
+                currentJobText.textContent = `Printing Job ${data.jobId.slice(0,8)}`;
+            } else if (data.status === 'completed') {
+                printerSim.classList.remove('animating');
+                currentJobText.textContent = 'Idle';
+                addLog('success', `Job ${data.jobId.slice(0,8)} successfully completed! Paper dropped in tray.`);
+            } else if (data.status === 'queued') {
+                // Ignore, handled below in position
+            }
+        });
+
+        // Event: Queue Positions
+        socket.on('queue:position', (data) => {
+            addLog('info', `Job ${data.jobId.slice(0,8)} is in queue at position ${data.position}`);
+        });
+
+        // Event: Print Agent sending progress pages
+        socket.on('job:progress', (data) => {
+            addLog('info', `Print Progress: Page ${data.pagesPrinted} of ${data.pagesTotal}`);
+        });
+
+        // Event: Printer Health
+        socket.on('printer:status', (data) => {
+            addLog('info', `Printer Hardware [${data.printerId}] status: ${data.status}`);
+        });
+
+    </script>
+</body>
+</html>
