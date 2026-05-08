@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(pnpm --version)",
+      "Bash(npm --version)",
+      "Bash(where gh.exe)",
+      "Bash(where pnpm.cmd)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" --version)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git branch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
