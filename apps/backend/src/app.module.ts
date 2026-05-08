@@ -12,6 +12,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { PrintersModule } from './modules/printers/printers.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
+import { AgentModule } from './modules/agent/agent.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -28,6 +29,7 @@ import { HealthController } from './health.controller';
     PrintersModule,
     QueueModule,
     RealtimeModule,
+    AgentModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

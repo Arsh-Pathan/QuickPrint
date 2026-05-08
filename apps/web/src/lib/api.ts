@@ -22,6 +22,19 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  requestOtp: (phone: string) =>
+    http<{ sent: boolean }>('/auth/otp/request', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    }),
+  verifyOtp: (phone: string, code: string) =>
+    http<{ token: string; user: { id: string; phone: string; role: string } }>(
+      '/auth/otp/verify',
+      {
+        method: 'POST',
+        body: JSON.stringify({ phone, code }),
+      },
+    ),
   signUpload: (body: { fileName: string; mimeType: string; fileSize: number }) =>
     http<{ uploadUrl: string; fileKey: string }>('/files/sign-upload', {
       method: 'POST',
@@ -41,5 +54,14 @@ export const api = {
     http<{ orderId: string; amountPaise: number; keyId: string }>('/payments/orders', {
       method: 'POST',
       body: JSON.stringify({ jobId }),
+    }),
+  confirmPayment: (body: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+  }) =>
+    http<{ ok: boolean }>('/payments/confirm', {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 };

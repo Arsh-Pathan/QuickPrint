@@ -10,13 +10,17 @@ export function StatCard({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <div className="google-card group" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
       <div className="flex items-start justify-between">
-        <p className="text-sm text-slate-500">{label}</p>
-        {icon && <span className="text-slate-400">{icon}</span>}
+        <p className="text-[13px] font-medium text-[#5f6368]">{label}</p>
+        {icon && (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1f3f4] text-[#5f6368] transition-colors group-hover:bg-brand-50 group-hover:text-brand-500">
+            {icon}
+          </span>
+        )}
       </div>
-      <p className="mt-2 text-3xl font-semibold tabular-nums">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+      <p className="mt-3 text-[28px] font-bold text-[#202124] tabular-nums tracking-tight">{value}</p>
+      {hint && <p className="mt-1.5 text-[12px] text-[#70757a]">{hint}</p>}
     </div>
   );
 }

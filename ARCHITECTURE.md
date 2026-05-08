@@ -9,8 +9,8 @@ This document describes the system design, the responsibilities of each componen
 │  Student Web App   │         │  Admin Dashboard   │
 │  (Next.js, mobile) │         │     (Next.js)      │
 └─────────┬──────────┘         └─────────┬──────────┘
-          │ HTTPS + WSS                   │ HTTPS + WSS
-          └──────────────┬────────────────┘
+          │ HTTPS + WSS                  │ HTTPS + WSS
+          └──────────────┬───────────────┘
                          │
                 ┌────────┴─────────┐
                 │   Backend API    │  NestJS

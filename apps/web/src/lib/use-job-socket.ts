@@ -8,7 +8,11 @@ let shared: Socket | null = null;
 
 function getSocket() {
   if (shared) return shared;
-  shared = io(`${WS}${WS_NAMESPACE}`, { transports: ['websocket'] });
+  const token = typeof window !== 'undefined' ? window.localStorage.getItem('qp_token') : null;
+  shared = io(`${WS}${WS_NAMESPACE}`, {
+    transports: ['websocket'],
+    auth: token ? { token } : undefined,
+  });
   return shared;
 }
 

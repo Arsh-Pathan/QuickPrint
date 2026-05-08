@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, ListOrdered, Printer, BarChart3, Settings } from 'lucide-react';
 import clsx from 'clsx';
@@ -15,17 +16,26 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="w-60 shrink-0 border-r border-slate-200 px-4 py-6 dark:border-slate-800">
-      <div className="mb-8 flex items-center gap-2">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white">
-          <Printer className="h-4 w-4" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold">QuickPrint</p>
-          <p className="text-xs text-slate-500">Admin</p>
-        </div>
+    <aside className="w-[260px] shrink-0 bg-white border-r border-[#dadce0] flex flex-col">
+      {/* Logo area */}
+      <div className="px-6 py-6 border-b border-[#dadce0]">
+        <Link href="/" className="flex items-center gap-3">
+          <Image 
+            src="/logo.svg" 
+            alt="QuickPrint" 
+            width={36} 
+            height={36} 
+            className="h-auto w-9"
+          />
+          <div>
+            <p className="text-[15px] font-medium text-[#202124] leading-tight">QuickPrint</p>
+            <p className="text-[11px] font-medium text-[#5f6368] tracking-wide">Admin Console</p>
+          </div>
+        </Link>
       </div>
-      <nav className="space-y-1">
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
         {NAV.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -34,18 +44,25 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={clsx(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition',
+                'flex items-center gap-3 rounded-full px-4 py-2.5 text-[13px] font-medium transition-all duration-200',
                 active
-                  ? 'bg-brand text-white'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                  ? 'bg-brand-50 text-brand-600'
+                  : 'text-[#3c4043] hover:bg-[#f1f3f4]',
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={clsx('h-[18px] w-[18px]', active ? 'text-brand-600' : 'text-[#5f6368]')} />
               {item.label}
             </Link>
           );
         })}
       </nav>
+
+      {/* Bottom branding */}
+      <div className="border-t border-[#dadce0] px-6 py-4">
+        <p className="text-[10px] font-medium text-[#bdc1c6] tracking-wider uppercase">
+          AI & ML Club · DPES
+        </p>
+      </div>
     </aside>
   );
 }

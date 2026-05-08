@@ -1,13 +1,22 @@
+import { Settings as SettingsIcon } from 'lucide-react';
+
 export default function SettingsPage() {
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-8 py-2">
       <header>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-slate-500">Pricing, default printer, agent token</p>
+        <h1 className="text-[24px] font-normal text-[#202124]">Settings</h1>
+        <p className="mt-1 text-[13px] text-[#5f6368]">Pricing, default printer, and agent configuration</p>
       </header>
-      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-        <p className="text-slate-500">
-          Pricing config (B/W ₹ paise, color ₹ paise, duplex discount) and agent provisioning UI go here.
+
+      <div className="google-card">
+        <div className="flex items-center gap-3 border-b border-[#dadce0] pb-4 mb-5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1f3f4]">
+            <SettingsIcon className="h-4 w-4 text-[#5f6368]" />
+          </div>
+          <h2 className="text-[15px] font-medium text-[#202124]">General Configuration</h2>
+        </div>
+        <p className="text-[13px] text-[#5f6368] leading-relaxed">
+          Pricing configuration (B/W paise, color paise, duplex discount) and agent provisioning UI will be available here.
         </p>
       </div>
     </div>

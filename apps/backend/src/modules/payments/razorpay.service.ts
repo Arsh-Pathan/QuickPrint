@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import Razorpay from 'razorpay';
 
 export interface CreatedOrder {
   orderId: string;
@@ -9,14 +10,10 @@ export interface CreatedOrder {
   keyId: string;
 }
 
-/**
- * Thin wrapper around the Razorpay SDK. Defers the SDK import so dev mode
- * works without keys; in production it should be replaced with the real
- * `Razorpay` client.
- */
 @Injectable()
 export class RazorpayService {
   private readonly logger = new Logger(RazorpayService.name);
+  private readonly rzp: Razorpay | null = null;
   private readonly keyId: string;
   private readonly keySecret: string;
   private readonly webhookSecret: string;
@@ -25,28 +22,46 @@ export class RazorpayService {
     this.keyId = cfg.get<string>('RAZORPAY_KEY_ID') ?? '';
     this.keySecret = cfg.get<string>('RAZORPAY_KEY_SECRET') ?? '';
     this.webhookSecret = cfg.get<string>('RAZORPAY_WEBHOOK_SECRET') ?? '';
+
+    if (this.keyId && this.keySecret) {
+      this.rzp = new Razorpay({
+        key_id: this.keyId,
+        key_secret: this.keySecret,
+      });
+    }
   }
 
   async createOrder(amountPaise: number, receipt: string): Promise<CreatedOrder> {
-    if (!this.keyId || !this.keySecret) {
+    if (!this.rzp) {
       this.logger.warn('Razorpay keys missing; returning mock order');
       return {
-        orderId: `mock_${receipt}`,
+        orderId: `mock_${receipt}_${Date.now()}`,
         amountPaise,
         currency: 'INR',
         keyId: this.keyId || 'rzp_test_mock',
       };
     }
-    // TODO: const Razorpay = (await import('razorpay')).default;
-    //       const rzp = new Razorpay({ key_id, key_secret });
-    //       return rzp.orders.create({ ... })
-    return { orderId: `mock_${receipt}`, amountPaise, currency: 'INR', keyId: this.keyId };
+
+    try {
+      const order = await this.rzp.orders.create({
+        amount: amountPaise,
+        currency: 'INR',
+        receipt,
+        notes: { jobId: receipt },
+      });
+
+      return {
+        orderId: order.id,
+        amountPaise: Number(order.amount),
+        currency: order.currency,
+        keyId: this.keyId,
+      };
+    } catch (err) {
+      this.logger.error('Razorpay order creation failed', err);
+      throw err;
+    }
   }
 
-  /**
-   * Razorpay client-side payment success signature:
-   *   HMAC_SHA256(orderId + '|' + paymentId, keySecret) === signature
-   */
   verifyClientSignature(orderId: string, paymentId: string, signature: string): boolean {
     if (!this.keySecret) return true; // dev mode
     const expected = createHmac('sha256', this.keySecret)

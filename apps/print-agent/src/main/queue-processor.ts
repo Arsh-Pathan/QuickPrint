@@ -121,6 +121,7 @@ export class QueueProcessor {
     await mod.print(filePath, {
       printer: printer.name,
       copies: job.copies,
+      monochrome: !job.color,
       ...(job.duplex ? { side: 'duplex' } : {}),
       ...(job.pageRange ? { pages: job.pageRange } : {}),
     });

@@ -58,16 +58,59 @@ export class PrintJobsService {
   }
 
   /**
-   * Called by PaymentsService after a successful Razorpay capture. Idempotent.
+   * Called by PaymentsService after a successful Razorpay capture.
+   * Idempotent on (jobId): repeated calls produce the same end state.
+   *
+   * Flow:
+   *   1. PrintJob.status = PAID
+   *   2. enqueue → QueueEntry row + status = QUEUED
+   *   3. emit job:status to subscribed student client
+   *   4. push agent:job-assigned to the shop's online agent (if any)
    */
   async markPaidAndEnqueue(jobId: string) {
     const job = await this.prisma.printJob.update({
       where: { id: jobId },
-      data: { status: 'PAID', paidAt: new Date() },
+      data: { status: 'QUEUED', paidAt: new Date() },
     });
-    await this.queue.enqueue(job.id, job.shopId ?? 'default', job.priority);
+    const shopId = job.shopId ?? 'shop_local_dev';
+    await this.queue.enqueue(job.id, shopId, job.priority);
     this.realtime.emitJobStatus(job.id, 'queued');
-    this.logger.log(`Job ${job.id} paid → queued`);
+
+    const printer = await this.pickPrinter(shopId, job);
+    const downloadUrl = await this.files.download(job.fileKey);
+    const assigned = this.realtime.assignJobToAgent(shopId, {
+      id: job.id,
+      fileUrl: downloadUrl,
+      fileName: job.fileName,
+      printerId: printer?.id ?? 'default',
+      copies: job.copies,
+      duplex: job.duplex,
+      color: job.color,
+      paperSize: job.paperSize,
+      pageRange: job.pageRange ?? undefined,
+    });
+
+    this.logger.log(
+      `Job ${job.id} paid → queued (shop=${shopId} agent_online=${assigned})`,
+    );
     return job;
+  }
+
+  /**
+   * Pick the best printer for a job. Strategy: first online printer at the
+   * shop that supports the requested capabilities. Returns null if none
+   * found — agent falls back to its default.
+   */
+  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean }) {
+    const candidates = await this.prisma.printer.findMany({
+      where: {
+        shopId,
+        status: 'ONLINE',
+        ...(job.color ? { supportsColor: true } : {}),
+        ...(job.duplex ? { supportsDuplex: true } : {}),
+      },
+      orderBy: { lastSeenAt: 'desc' },
+    });
+    return candidates[0] ?? null;
   }
 }
