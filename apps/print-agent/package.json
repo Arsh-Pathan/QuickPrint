@@ -1,0 +1,50 @@
+{
+  "name": "@quickprint/print-agent",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "tsc -p tsconfig.json --watch & electron .",
+    "build": "tsc -p tsconfig.json",
+    "start": "electron .",
+    "package": "electron-builder",
+    "package:win": "electron-builder --win --x64",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@quickprint/shared": "*",
+    "axios": "^1.7.7",
+    "better-sqlite3": "^11.3.0",
+    "electron-log": "^5.2.0",
+    "electron-store": "^10.0.0",
+    "p-queue": "^8.0.1",
+    "pdf-to-printer": "^5.6.0",
+    "pino": "^9.5.0",
+    "socket.io-client": "^4.8.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.7.5",
+    "electron": "^33.0.1",
+    "electron-builder": "^25.1.7",
+    "typescript": "^5.6.3"
+  },
+  "build": {
+    "appId": "com.quickprint.agent",
+    "productName": "QuickPrint Agent",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "publisherName": "QuickPrint"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

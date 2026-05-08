@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>QuickPrint Agent</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      h1 { font-size: 18px; margin: 0 0 16px; }
+      .status { display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 8px; background: #1e293b; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; }
+      ul { margin: 16px 0 0; padding: 0; list-style: none; }
+      li { padding: 10px; border-bottom: 1px solid #1e293b; font-size: 13px; }
+      .muted { color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <h1>QuickPrint Agent</h1>
+    <div class="status">
+      <div class="dot"></div>
+      <div>
+        <div>Connected</div>
+        <div class="muted" id="shop">shop_local_dev</div>
+      </div>
+    </div>
+    <ul id="log">
+      <li class="muted">Live activity will appear here.</li>
+    </ul>
+  </body>
+</html>
