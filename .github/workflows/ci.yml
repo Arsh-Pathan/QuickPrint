@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: quickprint
+          POSTGRES_PASSWORD: quickprint
+          POSTGRES_DB: quickprint
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U quickprint"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://quickprint:quickprint@localhost:5432/quickprint?schema=public
+      JWT_SECRET: ci_jwt_secret_thirty_two_bytes_long
+      AGENT_TOKEN_SECRET: ci_agent_secret_thirty_two_bytes_long
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --workspaces --include-workspace-root
+      - run: npm --workspace apps/backend run prisma:generate
+      - run: npm run typecheck --workspaces --if-present
+      - run: npm run build --workspaces --if-present
