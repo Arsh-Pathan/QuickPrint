@@ -29,4 +29,13 @@ export class AuthService {
     const token = await this.jwt.signAsync({ sub: user.id, role: user.role });
     return { token, user: { id: user.id, phone: user.phone, role: user.role } };
   }
+
+  async anonymousLogin() {
+    const user = await this.prisma.user.create({
+      data: { role: 'STUDENT' },
+    });
+
+    const token = await this.jwt.signAsync({ sub: user.id, role: user.role });
+    return { token, user: { id: user.id, phone: user.phone, role: user.role } };
+  }
 }

@@ -95,7 +95,7 @@ export default function UploadPage() {
           }
         },
         prefill: {
-          contact: user?.phone,
+          contact: user?.phone ?? undefined,
         },
         theme: {
           color: '#1a73e8',

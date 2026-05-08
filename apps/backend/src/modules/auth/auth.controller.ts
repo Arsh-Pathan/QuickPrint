@@ -25,4 +25,9 @@ export class AuthController {
   verify(@Body() dto: VerifyOtpDto) {
     return this.auth.verifyOtp(dto.phone, dto.code);
   }
+
+  @Post('anonymous')
+  anonymous() {
+    return this.auth.anonymousLogin();
+  }
 }

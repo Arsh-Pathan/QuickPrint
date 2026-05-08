@@ -64,7 +64,7 @@ enum NotificationChannel {
 
 model User {
   id        String   @id @default(cuid())
-  phone     String   @unique
+  phone     String?  @unique
   name      String?
   role      UserRole @default(STUDENT)
   shopId    String?

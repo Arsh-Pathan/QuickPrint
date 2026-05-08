@@ -35,6 +35,11 @@ export const api = {
         body: JSON.stringify({ phone, code }),
       },
     ),
+  anonymousLogin: () =>
+    http<{ token: string; user: { id: string; phone: string | null; role: string } }>(
+      '/auth/anonymous',
+      { method: 'POST' },
+    ),
   signUpload: (body: { fileName: string; mimeType: string; fileSize: number }) =>
     http<{ uploadUrl: string; fileKey: string }>('/files/sign-upload', {
       method: 'POST',

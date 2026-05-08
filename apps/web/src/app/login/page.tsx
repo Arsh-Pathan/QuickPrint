@@ -40,11 +40,26 @@ function LoginForm() {
     setError(null);
     try {
       const { user, token } = await api.verifyOtp(phone, code);
+      // @ts-ignore
       setAuth(user, token);
       router.push(next);
     } catch (err: any) {
       setError(err.message || 'Invalid OTP');
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGuestLogin() {
+    setLoading(true);
+    setError(null);
+    try {
+      const { user, token } = await api.anonymousLogin();
+      // @ts-ignore
+      setAuth(user, token);
+      router.push(next);
+    } catch (err: any) {
+      setError(err.message || 'Failed to login as guest');
       setLoading(false);
     }
   }
@@ -190,16 +205,24 @@ function LoginForm() {
         )}
       </div>
 
-      {/* Bottom links */}
-      <div className="mt-8 flex flex-col items-center gap-4">
-        <div className="flex gap-6 text-[13px] text-[#70757a]">
-          <Link href="/terms" className="hover:underline underline-offset-4">Terms</Link>
-          <Link href="/privacy" className="hover:underline underline-offset-4">Privacy</Link>
+        <div className="mt-8 flex flex-col items-center gap-4">
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            disabled={loading}
+            className="rounded-full bg-white px-6 py-2.5 text-sm font-medium text-[#3c4043] border border-[#dadce0] hover:bg-[#f8f9fa] shadow-sm transition-all duration-200"
+          >
+            Continue as Guest
+          </button>
+          
+          <div className="mt-2 flex gap-6 text-[13px] text-[#70757a]">
+            <Link href="/terms" className="hover:underline underline-offset-4">Terms</Link>
+            <Link href="/privacy" className="hover:underline underline-offset-4">Privacy</Link>
+          </div>
+          <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#bdc1c6]">
+            Automation by AI & ML Club
+          </p>
         </div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#bdc1c6]">
-          Automation by AI & ML Club
-        </p>
-      </div>
     </div>
   );
 }
