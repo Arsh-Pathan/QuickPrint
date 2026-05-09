@@ -30,4 +30,55 @@ export class PrintersService {
       }),
     ]);
   }
+
+  async syncFromHeartbeat(shopId: string, printers: any[]) {
+    if (!printers || !Array.isArray(printers)) return;
+    const now = new Date();
+
+    // Ensure the Shop exists to prevent Postgres foreign key constraint errors
+    try {
+      await this.prisma.shop.upsert({
+        where: { id: shopId },
+        create: { id: shopId, name: 'Local Dev Shop' },
+        update: {},
+      });
+    } catch (e) {
+      // safe to ignore if shop already exists
+    }
+
+    for (const p of printers) {
+      const pid = String(p.id);
+      const pname = String(p.name);
+      
+      try {
+        const existing = await this.prisma.printer.findUnique({ where: { id: pid } });
+        if (existing) {
+          await this.prisma.printer.update({
+            where: { id: pid },
+            data: {
+              name: pname,
+              // Only update status if provided, otherwise keep current
+              ...(p.status ? { status: String(p.status).toUpperCase() as any } : {}),
+              lastSeenAt: now,
+            },
+          });
+        } else {
+          await this.prisma.printer.create({
+            data: {
+              id: pid,
+              shopId,
+              name: pname,
+              supportsColor: true,
+              supportsDuplex: true,
+              status: (p.status ? String(p.status).toUpperCase() : 'ONLINE') as any,
+              lastSeenAt: now,
+            },
+          });
+        }
+      } catch (err) {
+        // ignore individual printer insert errors
+      }
+    }
+  }
 }
+

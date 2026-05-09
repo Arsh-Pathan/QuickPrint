@@ -30,6 +30,11 @@ export async function startAgent() {
     url: config.backendUrl,
     token: config.agentToken,
     shopId: config.shopId,
+    printers: printers.map(p => ({
+      id: p.id,
+      name: p.name,
+      isDefault: p.isDefault,
+    })),
   });
   await socket.connect();
 

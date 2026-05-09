@@ -39,15 +39,15 @@ export function Sidebar() {
     <aside className="w-[260px] shrink-0 bg-white border-r border-[#dadce0] flex flex-col">
       {/* Logo area */}
       <div className="px-6 py-6 border-b border-[#dadce0]">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex flex-col items-center gap-3">
           <Image 
             src="/logo.svg" 
             alt="QuickPrint" 
-            width={36} 
-            height={36} 
-            className="h-auto w-9"
+            width={160} 
+            height={70} 
+            className="h-12 w-auto object-contain"
           />
-          <div>
+          <div className="text-center">
             <p className="text-[15px] font-medium text-[#202124] leading-tight">QuickPrint</p>
             <p className="text-[11px] font-medium text-[#5f6368] tracking-wide">Admin Console</p>
           </div>

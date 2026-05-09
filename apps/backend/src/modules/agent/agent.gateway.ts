@@ -88,8 +88,13 @@ export class AgentGateway {
 
   /** Liveness signal so admin can show "agent online" in the dashboard. */
   @SubscribeMessage('agent:heartbeat')
-  async onHeartbeat(@MessageBody() p: { agentId: string; shopId: string }) {
+  async onHeartbeat(@MessageBody() p: { agentId: string; shopId: string; printers?: any[] }) {
     this.logger.debug(`heartbeat shop=${p.shopId}`);
+    if (p.shopId && p.printers) {
+      await this.printers.syncFromHeartbeat(p.shopId, p.printers).catch((e) => {
+        this.logger.error(`Failed to sync printers from heartbeat: ${e.message}`);
+      });
+    }
     return { ok: true };
   }
 }

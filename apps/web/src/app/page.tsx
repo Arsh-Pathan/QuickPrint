@@ -29,10 +29,10 @@ export default function HomePage() {
             <Image
               src="/logo.svg"
               alt="QuickPrint"
-              width={100}
-              height={100}
+              width={240}
+              height={105}
               priority
-              className="h-auto w-[100px] drop-shadow-sm"
+              className="h-20 w-auto object-contain drop-shadow-sm"
             />
             <h1 className="text-[34px] font-normal tracking-tight text-[#202124]">
               QuickPrint

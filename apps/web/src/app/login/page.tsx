@@ -40,7 +40,7 @@ function LoginForm() {
         style={{ animation: 'scaleIn 0.3s ease-out' }}
       >
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <Image src="/logo.svg" alt="QuickPrint" width={75} height={75} className="h-auto w-[75px]" />
+          <Image src="/logo.svg" alt="QuickPrint" width={240} height={105} className="h-16 w-auto object-contain" />
           <div>
             <h1 className="text-[24px] font-normal text-[#202124]">Welcome</h1>
             <p className="mt-1 text-[15px] text-[#202124]">Print at the campus shop in seconds</p>

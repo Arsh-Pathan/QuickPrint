@@ -159,9 +159,9 @@ export default function UploadPage() {
             <Image 
               src="/logo.svg" 
               alt="QuickPrint" 
-              width={48} 
-              height={48} 
-              className="h-auto w-12"
+              width={160} 
+              height={70} 
+              className="h-12 w-auto object-contain"
             />
           </Link>
           <h1 className="text-[22px] font-normal text-[#202124]">

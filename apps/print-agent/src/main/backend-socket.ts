@@ -8,6 +8,7 @@ interface SocketOpts {
   url: string;
   token: string;
   shopId: string;
+  printers: { id: string; name: string; isDefault: boolean }[];
 }
 
 type AssignedJob = AgentAssignedJobPayload &
@@ -51,7 +52,7 @@ export class BackendSocket {
       this.socket?.emit('agent:heartbeat', {
         agentId: this.opts.shopId,
         shopId: this.opts.shopId,
-        printers: [],
+        printers: this.opts.printers,
       });
     }, 15_000);
   }

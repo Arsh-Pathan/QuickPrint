@@ -77,44 +77,57 @@ export default function PrintersPage() {
 
 function PrinterCard({ printer }: { printer: PrinterRow }) {
   const ok = printer.status === 'ONLINE';
-  const warn = ['PAPER_OUT', 'TONER_LOW', 'JAM', 'BUSY'].includes(printer.status);
-  const err = ['OFFLINE', 'ERROR'].includes(printer.status);
+  const busy = printer.status === 'BUSY';
+  const paper = printer.status === 'PAPER_OUT';
+  const ink = printer.status === 'TONER_LOW';
+  const err = printer.status === 'OFFLINE' || printer.status === 'JAM' || printer.status === 'ERROR';
 
-  const accent = ok ? 'bg-emerald-50' : warn ? 'bg-amber-50' : 'bg-rose-50';
-  const icon = ok ? 'text-emerald-600' : warn ? 'text-amber-600' : 'text-rose-600';
+  const accent = ok ? 'bg-emerald-50' : busy ? 'bg-blue-50' : paper || ink ? 'bg-amber-50' : 'bg-rose-50';
+  const icon = ok ? 'text-emerald-600' : busy ? 'text-blue-600' : paper || ink ? 'text-amber-600' : 'text-rose-600';
+
+  const StatusIcon = () => {
+    if (busy) return <Loader2 className={`h-5 w-5 ${icon} animate-spin`} />;
+    if (paper || ink) return <AlertTriangle className={`h-5 w-5 ${icon} animate-bounce`} />;
+    if (ok) return <CheckCircle2 className={`h-5 w-5 ${icon}`} />;
+    return <AlertTriangle className={`h-5 w-5 ${icon}`} />;
+  };
+
+  const getStatusText = () => {
+    switch (printer.status) {
+      case 'ONLINE': return 'IDLE (READY)';
+      case 'BUSY': return 'PRINTING...';
+      case 'PAPER_OUT': return 'NEEDS PAPER REFILL';
+      case 'TONER_LOW': return 'NEEDS INK REFILL';
+      case 'JAM': return 'PAPER JAM';
+      default: return printer.status.replace('_', ' ');
+    }
+  };
 
   return (
-    <div className="google-card" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
+    <div className={`google-card transition-all duration-300 ${err ? 'opacity-75 grayscale-[0.5]' : ''}`} style={{ animation: 'fadeInUp 0.4s ease-out' }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`grid h-11 w-11 place-items-center rounded-xl ${accent}`}>
-            <Printer className={`h-5 w-5 ${icon}`} />
+          <div className={`grid h-11 w-11 place-items-center rounded-xl transition-all duration-500 ${accent} ${busy ? 'animate-pulse' : ''}`}>
+            <Printer className={`h-5 w-5 transition-colors ${icon}`} />
           </div>
           <div>
             <p className="text-[14px] font-medium text-[#202124]">{printer.name}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              {ok ? (
-                <Wifi className="h-3 w-3 text-emerald-500" />
+              {ok || busy ? (
+                <div className="relative flex h-3 w-3 items-center justify-center">
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${busy ? 'animate-ping bg-blue-400' : ok ? 'animate-pulse bg-emerald-400' : ''}`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${busy ? 'bg-blue-500' : ok ? 'bg-emerald-500' : ''}`}></span>
+                </div>
               ) : (
                 <WifiOff className="h-3 w-3 text-[#bdc1c6]" />
               )}
-              <p
-                className={`text-[11px] font-semibold uppercase tracking-wide ${
-                  ok ? 'text-emerald-600' : warn ? 'text-amber-600' : 'text-rose-600'
-                }`}
-              >
-                {printer.status.replace('_', ' ').toLowerCase()}
+              <p className={`text-[11px] font-bold uppercase tracking-wider ${icon}`}>
+                {getStatusText()}
               </p>
             </div>
           </div>
         </div>
-        {ok ? (
-          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-        ) : err ? (
-          <AlertTriangle className="h-5 w-5 text-rose-500" />
-        ) : (
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-        )}
+        <StatusIcon />
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
         <Metric label="Color" value={printer.supportsColor ? 'Yes' : 'No'} />

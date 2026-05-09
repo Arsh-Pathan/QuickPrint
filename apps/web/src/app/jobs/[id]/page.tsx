@@ -45,9 +45,9 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
             <Image 
               src="/logo.svg" 
               alt="QuickPrint" 
-              width={40} 
-              height={40} 
-              className="h-auto w-10"
+              width={160} 
+              height={70} 
+              className="h-12 w-auto object-contain"
             />
           </Link>
           <h1 className="text-[20px] font-normal text-[#202124]">Print Status</h1>
