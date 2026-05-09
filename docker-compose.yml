@@ -30,6 +30,8 @@ services:
       - "4000:4000"
     env_file:
       - apps/backend/.env
+    environment:
+      - DATABASE_URL=postgresql://quickprint:quickprint@postgres:5432/quickprint?schema=public
 
   web:
     build:
@@ -58,6 +60,14 @@ services:
       - NEXT_PUBLIC_WS_URL=http://localhost:4000
     depends_on:
       - backend
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: quickprint-cloudflared
+    restart: unless-stopped
+    command: tunnel --url http://web:3000
+    depends_on:
+      - web
 
 volumes:
   postgres_data:

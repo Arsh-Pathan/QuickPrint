@@ -7,6 +7,7 @@ export interface AgentConfig {
   agentToken: string;
   heartbeatIntervalMs: number;
   localQueueDir: string;
+  dummyPrinter: boolean;
 }
 
 export const config: AgentConfig = {
@@ -16,4 +17,5 @@ export const config: AgentConfig = {
   heartbeatIntervalMs: Number(process.env.AGENT_HEARTBEAT_INTERVAL_MS ?? 15_000),
   localQueueDir:
     process.env.AGENT_LOCAL_QUEUE_DIR ?? path.join(app.getPath('userData'), 'local-queue'),
+  dummyPrinter: process.env.AGENT_DUMMY_PRINTER === 'true',
 };

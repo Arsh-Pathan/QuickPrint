@@ -25,9 +25,10 @@ interface RazorpayOptions {
     email?: string;
     contact?: string;
   };
-  theme: {
-    color: string;
+  theme?: {
+    color?: string;
   };
+  config?: any;
 }
 
 declare global {

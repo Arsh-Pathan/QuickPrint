@@ -100,6 +100,24 @@ export default function UploadPage() {
         theme: {
           color: '#1a73e8',
         },
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay via UPI",
+                instruments: [
+                  {
+                    method: "upi"
+                  }
+                ]
+              }
+            },
+            sequence: ["block.upi"],
+            preferences: {
+              show_default_blocks: false
+            }
+          }
+        }
       };
 
       const rzp = new window.Razorpay(options);

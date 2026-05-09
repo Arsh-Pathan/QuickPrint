@@ -27,8 +27,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swagger));
 
   const port = Number(config.get('BACKEND_PORT') ?? 4000);
-  await app.listen(port);
-  Logger.log(`QuickPrint backend listening on :${port}`, 'Bootstrap');
+  await app.listen(port, '0.0.0.0');
+  Logger.log(`QuickPrint backend listening on 0.0.0.0:${port}`, 'Bootstrap');
 }
 
 void bootstrap();

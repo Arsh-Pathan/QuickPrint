@@ -7,6 +7,7 @@ import log from 'electron-log';
 import type { AgentJob, LocalQueue } from './local-queue';
 import type { DiscoveredPrinter } from './printer-discovery';
 import type { BackendSocket } from './backend-socket';
+import { config } from './config';
 
 const MAX_ATTEMPTS = 5;
 
@@ -116,6 +117,12 @@ export class QueueProcessor {
       ?? this.opts.printers.find((p) => p.isDefault)
       ?? this.opts.printers[0];
     if (!printer) throw new Error('no_printer_available');
+
+    if (config.dummyPrinter) {
+      log.info(`processor: [DUMMY MODE] simulating print for ${job.id} on ${printer.name}`);
+      await this.sleep(5_000); // Simulate 5s of printing
+      return;
+    }
 
     const mod = await import('pdf-to-printer');
     await mod.print(filePath, {

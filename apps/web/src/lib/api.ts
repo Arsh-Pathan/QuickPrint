@@ -1,6 +1,6 @@
 import type { CreatePrintJobDto } from '@quickprint/shared';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 function authHeaders(): HeadersInit {
   if (typeof window === 'undefined') return {};

@@ -34,7 +34,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
     setEta(evt.eta);
   });
 
-  const ui = STATUS_UI[status];
+  const ui = STATUS_UI[status] || STATUS_UI.created;
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-[#f8f9fa] px-4 py-8 sm:px-6 sm:py-12">

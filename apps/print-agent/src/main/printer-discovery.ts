@@ -1,4 +1,5 @@
 import log from 'electron-log';
+import { config } from './config';
 
 export interface DiscoveredPrinter {
   id: string;
@@ -19,14 +20,25 @@ export class PrinterDiscovery {
     try {
       const mod = await import('pdf-to-printer');
       const raw = await mod.getPrinters();
-      return raw.map((p, i) => ({
+      const printers: DiscoveredPrinter[] = raw.map((p, i) => ({
         id: p.deviceId ?? `printer_${i}`,
         name: p.name,
-        isDefault: false, // pdf-to-printer doesn't expose this directly; fill via separate call
-        supportsColor: /color/i.test(p.name) || true, // heuristic; refine via WMI
+        isDefault: false,
+        supportsColor: true,
         supportsDuplex: true,
-        driver: undefined,
       }));
+
+      if (config.dummyPrinter) {
+        printers.unshift({
+          id: 'dummy-printer',
+          name: 'Simulated Cloud Printer',
+          isDefault: true,
+          supportsColor: true,
+          supportsDuplex: true,
+        });
+      }
+
+      return printers;
     } catch (err) {
       log.warn('printer-discovery: falling back to mock list', err);
       return [
