@@ -15,7 +15,6 @@ export const config: AgentConfig = {
   shopId: process.env.AGENT_SHOP_ID ?? 'shop_local_dev',
   agentToken: process.env.AGENT_TOKEN ?? 'dev-token',
   heartbeatIntervalMs: Number(process.env.AGENT_HEARTBEAT_INTERVAL_MS ?? 15_000),
-  localQueueDir:
-    process.env.AGENT_LOCAL_QUEUE_DIR ?? path.join(app.getPath('userData'), 'local-queue'),
+  localQueueDir: process.env.AGENT_LOCAL_QUEUE_DIR ?? path.resolve('./local-queue'),
   dummyPrinter: process.env.AGENT_DUMMY_PRINTER === 'true',
 };

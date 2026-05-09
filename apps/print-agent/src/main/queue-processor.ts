@@ -102,7 +102,8 @@ export class QueueProcessor {
 
   private async download(job: AgentJob): Promise<string> {
     const tmp = path.join(os.tmpdir(), `qp_${randomUUID()}_${job.fileName}`);
-    const res = await axios.get(job.fileUrl, { responseType: 'stream' });
+    const url = job.fileUrl.startsWith('/') ? `${config.backendUrl}${job.fileUrl}` : job.fileUrl;
+    const res = await axios.get(url, { responseType: 'stream' });
     await new Promise<void>((resolve, reject) => {
       const out = fs.createWriteStream(tmp);
       res.data.pipe(out);

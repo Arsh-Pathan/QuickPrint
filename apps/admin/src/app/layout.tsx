@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Sidebar } from '@/components/sidebar';
 import { Providers } from './providers';
+import { AppShell } from '@/components/app-shell';
 
 export const metadata: Metadata = {
   title: 'QuickPrint Admin Console',
@@ -19,10 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Providers>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 px-6 py-6 lg:px-8">{children}</main>
-          </div>
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>

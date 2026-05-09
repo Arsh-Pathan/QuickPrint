@@ -6,8 +6,8 @@
   "author": "QuickPrint Team",
   "main": "dist/apps/print-agent/src/main/index.js",
   "scripts": {
-    "dev": "tsc -p tsconfig.json --watch & electron .",
-    "build": "tsc -p tsconfig.json",
+    "dev": "npm run build && electron .",
+    "build": "tsc -p tsconfig.json && xcopy /Y /I src\\renderer\\index.html dist\\apps\\print-agent\\src\\renderer\\",
     "start": "electron .",
     "package": "electron-builder",
     "package:win": "electron-builder --win --x64",

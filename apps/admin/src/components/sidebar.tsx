@@ -1,9 +1,17 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ListOrdered, Printer, BarChart3, Settings } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  LayoutDashboard,
+  ListOrdered,
+  Printer,
+  BarChart3,
+  Settings,
+  LogOut,
+} from 'lucide-react';
 import clsx from 'clsx';
+import { useAuth } from '@/lib/auth';
 
 const NAV = [
   { href: '/', label: 'Overview', icon: LayoutDashboard },
@@ -15,6 +23,14 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const logout = useAuth((s) => s.logout);
+
+  function onSignOut() {
+    logout();
+    router.replace('/login');
+  }
+
   return (
     <aside className="w-[260px] shrink-0 bg-white border-r border-[#dadce0] flex flex-col">
       {/* Logo area */}
@@ -57,10 +73,17 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom branding */}
-      <div className="border-t border-[#dadce0] px-6 py-4">
-        <p className="text-[10px] font-medium text-[#bdc1c6] tracking-wider uppercase">
-          AI & ML Club · DPES
+      {/* Bottom: sign out + branding */}
+      <div className="border-t border-[#dadce0] px-3 py-3">
+        <button
+          onClick={onSignOut}
+          className="flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-[13px] font-medium text-[#3c4043] transition-colors hover:bg-[#f1f3f4]"
+        >
+          <LogOut className="h-[18px] w-[18px] text-[#5f6368]" />
+          Sign out
+        </button>
+        <p className="mt-3 px-3 text-[10px] font-medium text-[#bdc1c6] tracking-wider uppercase">
+          AI &amp; ML Club · DPES
         </p>
       </div>
     </aside>

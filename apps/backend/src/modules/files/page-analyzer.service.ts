@@ -17,10 +17,15 @@ export class PageAnalyzerService {
     if (mimeType === 'application/pdf') {
       try {
         const buf = await this.storage.readLocal(fileKey);
+        if (buf.length < 5 || buf.subarray(0, 5).toString() !== '%PDF-') {
+          this.logger.warn(`page-analyzer: ${fileKey} missing PDF magic bytes, defaulting to 1 page`);
+          return { pages: 1, colorPages: 0 };
+        }
         const pdfDoc = await PDFDocument.load(buf, { ignoreEncryption: true });
         return { pages: pdfDoc.getPageCount(), colorPages: 0 };
       } catch (err) {
-        this.logger.warn(`page-analyzer: pdf-lib parse failed for ${fileKey}`, err);
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`page-analyzer: pdf-lib parse failed for ${fileKey}: ${msg}`);
         return { pages: 1, colorPages: 0 };
       }
     }

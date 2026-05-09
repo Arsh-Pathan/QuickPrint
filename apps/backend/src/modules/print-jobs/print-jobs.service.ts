@@ -58,6 +58,58 @@ export class PrintJobsService {
   }
 
   /**
+   * Admin-scoped recent jobs list. Returns jobs at a shop (or all if
+   * shopId is omitted), most recent first. Used by the admin dashboard.
+   */
+  async listForAdmin(opts: { shopId?: string; limit?: number; sinceHours?: number }) {
+    const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+    const since = opts.sinceHours
+      ? new Date(Date.now() - opts.sinceHours * 60 * 60 * 1000)
+      : undefined;
+    const shopFilter = opts.shopId
+      ? { OR: [{ shopId: opts.shopId }, { shopId: null }] }
+      : {};
+    return this.prisma.printJob.findMany({
+      where: {
+        ...shopFilter,
+        ...(since ? { createdAt: { gte: since } } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  /** Aggregate stats for the admin Overview page (today only by default). */
+  async statsForAdmin(shopId?: string) {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const shopFilter = shopId ? { OR: [{ shopId }, { shopId: null }] } : {};
+    const where = {
+      ...shopFilter,
+      createdAt: { gte: startOfDay },
+    };
+
+    const [completed, failed, queued, agg] = await Promise.all([
+      this.prisma.printJob.count({ where: { ...where, status: 'COMPLETED' } }),
+      this.prisma.printJob.count({ where: { ...where, status: 'FAILED' } }),
+      this.prisma.printJob.count({
+        where: { ...where, status: { in: ['QUEUED', 'PRINTING'] } },
+      }),
+      this.prisma.printJob.aggregate({
+        where: { ...where, status: 'COMPLETED' },
+        _sum: { priceTotalPaise: true },
+      }),
+    ]);
+
+    return {
+      jobsCompletedToday: completed,
+      jobsFailedToday: failed,
+      jobsInQueue: queued,
+      earningsTodayPaise: agg._sum.priceTotalPaise ?? 0,
+    };
+  }
+
+  /**
    * Called by PaymentsService after a successful Razorpay capture.
    * Idempotent on (jobId): repeated calls produce the same end state.
    *

@@ -65,6 +65,10 @@ export class HealthMonitor {
   }
 
   private async read(printer: DiscoveredPrinter): Promise<PrinterHealthSnapshot> {
+    // Dummy/mock printers don't exist in Windows — always report online
+    if (printer.id.startsWith('dummy-') || printer.id.startsWith('mock-')) {
+      return { printerId: printer.id, status: 'online' };
+    }
     if (process.platform !== 'win32') {
       return { printerId: printer.id, status: 'online' };
     }

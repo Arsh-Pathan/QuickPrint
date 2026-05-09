@@ -125,4 +125,4 @@ created ──pay──▶ paid ──enqueue──▶ queued ──agent picks�
 
 - Structured JSON logs (pino) on backend and agent.
 - `SystemEvent` table doubles as an in-app event timeline.
-- Health endpoints: `/healthz`, `/readyz`. Agent reports its own status to backend every 15 s.
+- Health endpoints: `/api/healthz`, `/api/readyz` (backend uses a global `api` prefix). Agent reports its own status to backend every 15 s.

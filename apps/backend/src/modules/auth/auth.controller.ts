@@ -10,6 +10,9 @@ class VerifyOtpDto {
   @Matches(/^\+?\d{10,15}$/) phone!: string;
   @IsString() @Length(4, 8) code!: string;
 }
+class AdminLoginDto {
+  @IsString() @Length(1, 200) password!: string;
+}
 
 @ApiTags('auth')
 @Controller('auth')
@@ -29,5 +32,10 @@ export class AuthController {
   @Post('anonymous')
   anonymous() {
     return this.auth.anonymousLogin();
+  }
+
+  @Post('admin/login')
+  adminLogin(@Body() dto: AdminLoginDto) {
+    return this.auth.adminLogin(dto.password);
   }
 }

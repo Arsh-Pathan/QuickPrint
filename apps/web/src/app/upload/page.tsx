@@ -114,7 +114,7 @@ export default function UploadPage() {
             },
             sequence: ["block.upi"],
             preferences: {
-              show_default_blocks: false
+              show_default_blocks: true
             }
           }
         }
