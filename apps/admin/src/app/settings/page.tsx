@@ -1,4 +1,5 @@
 import { Settings as SettingsIcon } from 'lucide-react';
+import { SettingsForm } from '@/components/settings-form';
 
 export default function SettingsPage() {
   return (
@@ -15,9 +16,7 @@ export default function SettingsPage() {
           </div>
           <h2 className="text-[15px] font-medium text-[#202124]">General Configuration</h2>
         </div>
-        <p className="text-[13px] text-[#5f6368] leading-relaxed">
-          Pricing configuration (B/W paise, color paise, duplex discount) and agent provisioning UI will be available here.
-        </p>
+        <SettingsForm />
       </div>
     </div>
   );

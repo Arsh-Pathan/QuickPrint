@@ -1,20 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { calculatePrice, type PrintSettings, type PricingConfig } from '@quickprint/shared';
+import { calculatePrice, type PrintSettings } from '@quickprint/shared';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class PricingService {
-  private readonly config: PricingConfig;
+  constructor(private readonly settings: SettingsService) {}
 
-  constructor(cfg: ConfigService) {
-    this.config = {
-      bwPaise: Number(cfg.get('PRICE_BW_PAISE') ?? 200),
-      colorPaise: Number(cfg.get('PRICE_COLOR_PAISE') ?? 1000),
-      duplexDiscountPct: Number(cfg.get('PRICE_DUPLEX_DISCOUNT_PCT') ?? 10),
-    };
-  }
-
-  quote(pages: number, colorPages: number, settings: PrintSettings) {
-    return calculatePrice(pages, colorPages, settings, this.config);
+  async quote(pages: number, colorPages: number, settings: PrintSettings) {
+    const s = await this.settings.get();
+    return calculatePrice(pages, colorPages, settings, {
+      bwPaise: s.bwPaise,
+      colorPaise: s.colorPaise,
+      duplexDiscountPct: s.duplexDiscountPct,
+    });
   }
 }

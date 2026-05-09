@@ -13,6 +13,8 @@ import { PrintersModule } from './modules/printers/printers.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { AgentModule } from './modules/agent/agent.module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -30,6 +32,8 @@ import { HealthController } from './health.controller';
     QueueModule,
     RealtimeModule,
     AgentModule,
+    SettingsModule,
+    AuditLogModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

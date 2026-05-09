@@ -22,23 +22,10 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  requestOtp: (phone: string) =>
-    http<{ sent: boolean }>('/auth/otp/request', {
-      method: 'POST',
-      body: JSON.stringify({ phone }),
-    }),
-  verifyOtp: (phone: string, code: string) =>
-    http<{ token: string; user: { id: string; phone: string; role: string } }>(
-      '/auth/otp/verify',
-      {
-        method: 'POST',
-        body: JSON.stringify({ phone, code }),
-      },
-    ),
-  anonymousLogin: () =>
-    http<{ token: string; user: { id: string; phone: string | null; role: string } }>(
+  anonymousLogin: (name?: string) =>
+    http<{ token: string; user: { id: string; phone: string | null; name: string | null; role: string } }>(
       '/auth/anonymous',
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ name: name ?? '' }) },
     ),
   signUpload: (body: { fileName: string; mimeType: string; fileSize: number }) =>
     http<{ uploadUrl: string; fileKey: string }>('/files/sign-upload', {

@@ -1,5 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
-import { Printer } from '@prisma/client';
+import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PricingService } from '../pricing/pricing.service';
 import { FilesService } from '../files/files.service';
@@ -26,8 +25,12 @@ export class PrintJobsService {
    * 3. Persists the job in the database with 'CREATED' status.
    */
   async create(userId: string, dto: CreatePrintJobDto) {
+    if (!dto.fileKey || !dto.mimeType) {
+      throw new BadRequestException('invalid_file_payload');
+    }
+
     const analysis = await this.files.analyze(dto.fileKey, dto.mimeType);
-    const breakdown = this.pricing.quote(analysis.pages, analysis.colorPages, dto.settings);
+    const breakdown = await this.pricing.quote(analysis.pages, analysis.colorPages, dto.settings);
 
     return this.prisma.printJob.create({
       data: {
@@ -168,7 +171,7 @@ export class PrintJobsService {
    * Strictly routes jobs based on the session's color requirement.
    * Color jobs MUST go to a printer with 'supportsColor: true'.
    */
-  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean }): Promise<Printer | null> {
+  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean }): Promise<{ id: string; [k: string]: unknown } | null> {
     const candidates = await this.prisma.printer.findMany({
       where: {
         shopId,

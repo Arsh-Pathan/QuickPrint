@@ -9,6 +9,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Users,
+  ActivitySquare
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/lib/auth';
@@ -18,6 +20,8 @@ const NAV = [
   { href: '/queue', label: 'Queue', icon: ListOrdered },
   { href: '/printers', label: 'Printers', icon: Printer },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/users', label: 'Students', icon: Users },
+  { href: '/audit', label: 'Audit Logs', icon: ActivitySquare },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

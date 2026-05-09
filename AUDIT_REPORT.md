@@ -1,72 +1,121 @@
-# QuickPrint — Software Audit & Issues Report
+# QuickPrint Audit Report
 
-**Date:** May 9, 2026
-**Status:** Alpha / Development
-**Auditor:** Gemini CLI
+Original audit date: May 9, 2026  
+Current status: retained as a historical report, updated with resolution notes
 
-## 1. Executive Summary
-QuickPrint is a well-architected monorepo with a robust design for autonomous printing. The use of a durable SQLite queue in the Print Agent and HMAC-signed storage URLs demonstrates a strong focus on reliability and security. However, several critical issues were identified, most notably a total lack of automated testing and build failures in the frontend applications.
+## Purpose
 
-## 2. Critical Flaws & Issues
+This file preserves the original audit themes while recording what is true in the repository now. For the detailed fix log, see `docs/AUDIT_FIXES_2026-05-09.md`.
 
-### 2.1 Build Failures (Frontend)
-- **Status:** 🔴 CRITICAL
-- **Issue:** Both `apps/admin` and `apps/web` fail to build in production mode.
-- **Root Cause:** Next.js 15 throws `Error: <Html> should not be imported outside of pages/_document.` during the build. This indicates a conflict between the App Router configuration and legacy components or automatic 404 page generation.
-- **Impact:** The applications cannot be deployed to production.
+## Original High-Level Findings
 
-### 2.2 Lack of Automated Testing
-- **Status:** 🔴 CRITICAL
-- **Issue:** There are zero `.spec.ts` or `.test.ts` files in the entire monorepo.
-- **Impact:** High risk of regressions, especially in the complex print job lifecycle and pricing logic.
-- **Recommendation:** Implement Jest/Vitest for unit testing and Playwright for E2E testing of the "Golden Path".
+The original audit identified these major areas:
 
-### 2.3 Page Analysis Incompleteness
-- **Status:** 🟡 WARNING
-- **Issue:** `PageAnalyzerService` (Backend) currently defaults `colorPages` to 0 for all PDFs.
-- **Impact:** Incorrect pricing for color documents.
-- **Recommendation:** Integrate `ghostscript` or a similar tool to perform pixel-level analysis for color detection.
+1. frontend production build failures
+2. lack of automated testing
+3. incomplete PDF color-page analysis
+4. missing downloaded-file integrity verification in the print agent
+5. anonymous guest-user database growth
 
-### 2.4 Security: File Hash Verification
-- **Status:** 🟡 WARNING
-- **Issue:** The Print Agent downloads files via signed URLs but does not verify the file integrity (e.g., via SHA-256 hash).
-- **Impact:** Potential (though unlikely) MITM or storage-level tampering.
-- **Recommendation:** Include the file hash in the `agent:job-assigned` event and verify it after download.
+## Current Resolution Status
 
-### 2.5 Scalability: Anonymous User Bloat
-- **Status:** 🔵 IMPROVEMENT
-- **Issue:** `AuthService.anonymousLogin()` creates a new database row for every guest session.
-- **Impact:** Database bloat over time.
-- **Recommendation:** Implement a cleanup job for guest accounts older than 24 hours.
+| Audit Item | Original Status | Current Repo Status |
+|---|---|---|
+| Frontend build failures | Critical | Resolved |
+| Lack of automated tests | Critical | Partially resolved with baseline Vitest coverage |
+| PDF `colorPages` always `0` | Warning | Resolved |
+| Agent missing file hash verification | Warning | Already implemented; shared typing tightened |
+| Guest account bloat | Improvement | Mitigated with stale anonymous-user pruning |
 
-## 3. Codebase Analysis
+## Current Notes by Item
 
-### 3.1 Architecture
-- **Monorepo:** Well-structured using npm workspaces.
-- **Backend:** Clean NestJS implementation with clear module separation.
-- **Shared Package:** Correct use of `@quickprint/shared` for types and logic ensures consistency.
-- **Agent:** Excellent use of a durable local queue (SQLite) to handle power failures or crashes.
+### 1. Frontend Build Failures
 
-### 3.2 Security
-- **Auth:** JWT-based with RBAC is correctly implemented.
-- **Storage:** HMAC signatures for local storage are robust.
-- **Input Validation:** Proper use of `class-validator` in controllers.
+Current status: resolved
 
-### 3.3 Reliability
-- **Retry Logic:** Agent has a solid retry mechanism (5 attempts) for hardware failures.
-- **State Machine:** Job status transitions are logical but could benefit from stricter validation in `markPaidAndEnqueue`.
+What is true now:
 
-## 4. Completed Actions
-- [x] **Top-to-bottom structural audit performed.**
-- [x] **Code annotations added** to major service blocks in:
-  - `PrintJobsService` (Backend)
-  - `AuthService` (Backend)
-  - `StorageService` (Backend)
-  - `QueueProcessor` (Print Agent)
-- [x] **Build health check executed** (Identified Next.js build issues).
-- [x] **Test coverage analysis** (Identified 0% coverage).
+- `apps/admin` builds successfully in production mode
+- `apps/web` builds successfully in production mode
+- the previously reported `<Html>` issue is not the currently reproducible failure mode in this repo
 
-## 5. Next Steps
-1. **Fix Frontend Build:** Resolve the `<Html>` conflict in Next.js.
-2. **Bootstrap Testing:** Add initial unit tests for `PricingService`.
-3. **Implement Page Analysis:** Add real color detection to `PageAnalyzerService`.
+What changed:
+
+- admin root layout now includes global styles and React Query providers
+- remote font loading dependencies were removed from the app-router build path
+
+## 2. Automated Testing
+
+Current status: baseline coverage exists
+
+What is true now:
+
+- the repo has a root Vitest setup
+- shared pricing tests exist
+- backend tests exist for PDF page analysis
+- backend tests exist for anonymous guest cleanup behavior
+
+Remaining gap:
+
+- there is still no full end-to-end browser or printer-hardware test suite in the repo
+
+## 3. PDF Color Analysis
+
+Current status: resolved
+
+What is true now:
+
+- `PageAnalyzerService` performs best-effort PDF color-page detection
+- `colorPages` is no longer hardcoded to `0` for every PDF
+
+Important nuance:
+
+- pricing is still based on the user-selected job mode, not mixed per-page color pricing
+
+## 4. File Integrity Verification
+
+Current status: implemented
+
+What is true now:
+
+- backend stores `fileHash` on `PrintJob`
+- backend includes `fileHash` in the agent assignment payload
+- the print agent recomputes SHA-256 after download and fails the job on mismatch
+
+The main improvement made during audit follow-up:
+
+- the assignment payload shape is now part of the shared WebSocket contract
+
+## 5. Anonymous User Bloat
+
+Current status: mitigated
+
+What is true now:
+
+- guest login still creates a new anonymous student row
+- before creating that row, the backend now attempts to prune stale anonymous student users older than 24 hours
+- cleanup is conservative and skips rows with linked jobs, payments, notifications, or audit logs
+
+## Current Verification Snapshot
+
+These checks have been run successfully against the current repo state:
+
+```powershell
+npm.cmd test
+npm.cmd --workspace apps/backend run typecheck
+npm.cmd --workspace packages/shared run typecheck
+npm.cmd --workspace apps/print-agent run typecheck
+npm.cmd --workspace apps/backend run build
+npm.cmd --workspace apps/admin run build
+cd apps\web
+npx.cmd next build --debug
+```
+
+## Remaining Recommended Validation
+
+Even with the fixes above, these still require live environment testing:
+
+- full student upload-to-payment-to-print flow
+- Razorpay test-mode confirmation in a running environment
+- Windows print-agent execution against real printers
+- long-running queue recovery and reconnect behavior
