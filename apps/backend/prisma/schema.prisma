@@ -132,6 +132,7 @@ model PrintJob {
   fileName      String
   fileSize      Int
   mimeType      String
+  fileHash      String?
   pages         Int            @default(0)
   colorPages    Int            @default(0)
   // settings

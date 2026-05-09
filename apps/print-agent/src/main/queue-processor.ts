@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import axios from 'axios';
 import log from 'electron-log';
 import type { AgentJob, LocalQueue } from './local-queue';
@@ -30,12 +30,19 @@ export class QueueProcessor {
 
   constructor(private opts: ProcessorOpts) {}
 
+  /**
+   * Initializes the processor. 
+   * Releases any jobs that were mid-flight if the agent previously crashed.
+   */
   async start() {
     this.opts.queue.releaseAllClaims(); // recover from crash mid-job
     this.running = true;
     void this.loop();
   }
 
+  /**
+   * Gracefully stops the processing loop.
+   */
   async stop() {
     this.running = false;
     this.kick();
@@ -46,11 +53,17 @@ export class QueueProcessor {
     this.wakeup?.();
   }
 
+  /**
+   * Pauses job execution, typically triggered by hardware issues reported by HealthMonitor.
+   */
   pause(reason: string) {
     log.warn(`processor: paused (${reason})`);
     this.paused = true;
   }
 
+  /**
+   * Resumes job execution once hardware issues are cleared.
+   */
   resume() {
     if (!this.paused) return;
     log.info('processor: resumed');
@@ -58,6 +71,9 @@ export class QueueProcessor {
     this.kick();
   }
 
+  /**
+   * Main processing loop. Checks for new jobs in the local SQLite database.
+   */
   private async loop() {
     while (this.running) {
       if (this.paused) {
@@ -73,6 +89,12 @@ export class QueueProcessor {
     }
   }
 
+  /**
+   * Core execution logic for a single print job.
+   * 1. Downloads the file to a secure temporary location and verifies integrity.
+   * 2. Dispatches to the physical printer.
+   * 3. Updates both local and remote state on success or failure.
+   */
   private async runJob(job: AgentJob) {
     log.info(`processor: running job ${job.id}`);
     try {
@@ -100,19 +122,41 @@ export class QueueProcessor {
     }
   }
 
+  /**
+   * Downloads the file from the backend and verifies its SHA-256 hash.
+   * Uses streaming to handle potentially large documents efficiently.
+   */
   private async download(job: AgentJob): Promise<string> {
     const tmp = path.join(os.tmpdir(), `qp_${randomUUID()}_${job.fileName}`);
     const url = job.fileUrl.startsWith('/') ? `${config.backendUrl}${job.fileUrl}` : job.fileUrl;
+    
+    const hasher = createHash('sha256');
     const res = await axios.get(url, { responseType: 'stream' });
+    
     await new Promise<void>((resolve, reject) => {
       const out = fs.createWriteStream(tmp);
       res.data.pipe(out);
+      res.data.on('data', (chunk: Buffer) => hasher.update(chunk));
       out.on('finish', resolve);
       out.on('error', reject);
     });
+
+    if (job.fileHash) {
+      const downloadedHash = hasher.digest('hex');
+      if (downloadedHash !== job.fileHash) {
+        fs.unlink(tmp, () => undefined);
+        throw new Error(`integrity_check_failed: expected ${job.fileHash}, got ${downloadedHash}`);
+      }
+      log.info(`processor: integrity verified for job ${job.id}`);
+    }
+
     return tmp;
   }
 
+  /**
+   * Hardware bridge. 
+   * Selects the target printer and uses pdf-to-printer to talk to the Windows Spooler.
+   */
   private async print(filePath: string, job: AgentJob) {
     const printer = this.opts.printers.find((p) => p.id === job.printerId)
       ?? this.opts.printers.find((p) => p.isDefault)

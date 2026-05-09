@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import log from 'electron-log';
-import { WS_NAMESPACE } from '@quickprint/shared';
+import { WS_NAMESPACE, type AgentAssignedJobPayload } from '@quickprint/shared';
 import type { AgentJob } from './local-queue';
 import type { PrinterHealthSnapshot } from './health-monitor';
 
@@ -10,7 +10,8 @@ interface SocketOpts {
   shopId: string;
 }
 
-type AssignedJob = Omit<AgentJob, 'attempts' | 'enqueuedAt'>;
+type AssignedJob = AgentAssignedJobPayload &
+  Omit<AgentJob, keyof AgentAssignedJobPayload | 'attempts' | 'enqueuedAt'>;
 
 /**
  * Authenticated Socket.IO connection to the backend. Handles:

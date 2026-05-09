@@ -9,24 +9,17 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { WS_NAMESPACE, type PrintJobStatus, type PrinterStatus } from '@quickprint/shared';
+import {
+  WS_NAMESPACE,
+  type AgentAssignedJobPayload,
+  type PrintJobStatus,
+  type PrinterStatus,
+} from '@quickprint/shared';
 
 interface AgentSocketAuth {
   token?: string;
   shopId?: string;
   role?: 'AGENT' | 'STUDENT' | 'ADMIN';
-}
-
-interface AssignedJobPayload {
-  id: string;
-  fileUrl: string;
-  fileName: string;
-  printerId: string;
-  copies: number;
-  duplex: boolean;
-  color: boolean;
-  paperSize: string;
-  pageRange?: string;
 }
 
 @WebSocketGateway({
@@ -96,7 +89,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
    * (job stays in QUEUED, will be picked up on next reconnect via
    * agent-initiated polling — TODO).
    */
-  assignJobToAgent(shopId: string, payload: AssignedJobPayload): boolean {
+  assignJobToAgent(shopId: string, payload: AgentAssignedJobPayload): boolean {
     const sockets = this.agentSockets.get(shopId);
     if (!sockets || sockets.size === 0) {
       this.logger.warn(`assignJobToAgent: no agent online for shop ${shopId}`);

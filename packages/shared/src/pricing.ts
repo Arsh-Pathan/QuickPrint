@@ -17,18 +17,18 @@ export interface PriceBreakdown {
 }
 
 /**
- * Calculate price for a print job. Pure function — same inputs, same output.
- * Cost lives client and server side; both use this so quotes match.
+ * Calculate price for a print job. 
+ * Session-based model: the entire job is either Color or B&W.
  */
 export function calculatePrice(
   pages: number,
-  colorPages: number,
+  _colorPages: number,
   settings: PrintSettings,
   config: PricingConfig,
 ): PriceBreakdown {
-  const bwPages = Math.max(0, pages - colorPages);
-  const effectiveColorPages = settings.color ? colorPages : 0;
-  const effectiveBwPages = settings.color ? bwPages : pages;
+  const isColor = settings.color === true;
+  const effectiveColorPages = isColor ? pages : 0;
+  const effectiveBwPages = isColor ? 0 : pages;
 
   const perCopy =
     effectiveBwPages * config.bwPaise + effectiveColorPages * config.colorPaise;

@@ -7,6 +7,7 @@ export interface AgentJob {
   id: string;
   fileUrl: string;
   fileName: string;
+  fileHash?: string;
   printerId: string;
   copies: number;
   duplex: boolean;

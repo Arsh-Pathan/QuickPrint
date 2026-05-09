@@ -1,325 +1,708 @@
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QuickPrint - Print Visualizer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuickPrint • Live Print Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
     <style>
         :root {
-            --bg: #f8f9fa;
-            --surface: #ffffff;
-            --primary: #1a73e8;
-            --text-main: #202124;
-            --text-sec: #5f6368;
-            --border: #dadce0;
+            --bg: #0b1220;
+            --surface: rgba(18, 24, 38, 0.82);
+            --surface-2: rgba(24, 32, 50, 0.95);
+            --primary: #4f8cff;
+            --primary-soft: rgba(79, 140, 255, 0.15);
+            --success: #34d399;
+            --warning: #fbbf24;
+            --danger: #f87171;
+            --text-main: #f8fafc;
+            --text-sec: #9ca3af;
+            --border: rgba(255, 255, 255, 0.08);
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+            --radius: 24px;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            background-color: var(--bg);
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(79, 140, 255, 0.18), transparent 30%),
+                radial-gradient(circle at bottom right, rgba(52, 211, 153, 0.15), transparent 30%),
+                var(--bg);
             color: var(--text-main);
-            font-family: 'Google Sans', sans-serif;
-            margin: 0;
-            padding: 40px;
+            min-height: 100vh;
+            padding: 32px;
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: auto;
+        }
+
+        .topbar {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
+            margin-bottom: 28px;
+            gap: 20px;
+            flex-wrap: wrap;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .header h1 {
-            font-weight: 500;
-            margin: 0 0 8px 0;
-        }
-
-        .header p {
-            color: var(--text-sec);
+        .title-wrap h1 {
             margin: 0;
-            font-size: 14px;
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
         }
 
-        .visualizer-container {
+        .title-wrap p {
+            margin-top: 10px;
+            color: var(--text-sec);
+            font-size: 15px;
+        }
+
+        .status-pill {
             display: flex;
-            gap: 40px;
-            max-width: 1000px;
-            width: 100%;
+            align-items: center;
+            gap: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 12px 18px;
+            border-radius: 999px;
+            backdrop-filter: blur(18px);
+            box-shadow: var(--shadow);
+        }
+
+        .pulse {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 14px var(--success);
+            animation: pulse 1.4s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.4);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 980px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: var(--radius);
             padding: 24px;
-            flex: 1;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            backdrop-filter: blur(18px);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
         }
 
-        .card h2 {
-            font-size: 18px;
-            font-weight: 500;
-            margin-top: 0;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 12px;
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(140deg,
+                    rgba(255, 255, 255, 0.05),
+                    transparent 40%);
+            pointer-events: none;
+        }
+
+        .card-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
         }
 
-        /* Printer Animation */
-        .printer-sim {
+        .card-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .mini-tag {
+            background: var(--primary-soft);
+            color: #c9ddff;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid rgba(79, 140, 255, 0.2);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 700px) {
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-box {
+            background: var(--surface-2);
+            border-radius: 18px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-label {
+            color: var(--text-sec);
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 1.9rem;
+            font-weight: 800;
+        }
+
+        .printer-stage {
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 220px;
+            justify-content: center;
+            margin-top: 10px;
+            min-height: 360px;
             position: relative;
-            margin-top: 40px;
+        }
+
+        .printer-glow {
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            background: radial-gradient(circle, rgba(79, 140, 255, 0.25), transparent 70%);
+            filter: blur(18px);
+            z-index: 0;
+        }
+
+        .printer {
+            position: relative;
+            z-index: 2;
+        }
+
+        .paper-stack {
+            width: 110px;
+            height: 65px;
+            background: linear-gradient(to bottom, #fff, #dbe7ff);
+            border-radius: 10px 10px 0 0;
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 1px solid rgba(255, 255, 255, 0.5);
         }
 
         .printer-body {
-            width: 140px;
-            height: 70px;
-            background: #f1f3f4;
-            border-radius: 12px;
-            border: 2px solid #dadce0;
-            position: relative;
-            z-index: 2;
+            width: 230px;
+            height: 120px;
+            border-radius: 24px;
+            background: linear-gradient(145deg, #20293f, #12192a);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow:
+                inset 0 1px 1px rgba(255, 255, 255, 0.05),
+                0 18px 40px rgba(0, 0, 0, 0.45);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            position: relative;
         }
 
-        .printer-body::after {
-            content: '';
-            width: 100px;
-            height: 8px;
-            background: #5f6368;
-            border-radius: 4px;
+        .printer-slot {
+            width: 140px;
+            height: 14px;
+            background: #0f172a;
+            border-radius: 999px;
             position: absolute;
-            bottom: 12px;
+            bottom: 22px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
         }
 
-        .paper-in {
-            width: 90px;
-            height: 50px;
-            background: #ffffff;
-            border: 1px solid #dadce0;
+        .printer-led {
             position: absolute;
-            top: -40px;
-            border-radius: 4px 4px 0 0;
-            z-index: 1;
-            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.02);
-        }
-
-        .paper-out {
-            width: 90px;
-            height: 0px;
-            background: #ffffff;
-            border: 1px solid var(--primary);
-            position: absolute;
-            top: 70px; /* Right below the body */
-            border-radius: 0 0 4px 4px;
-            z-index: 1;
-            transition: height 0.3s;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 4px 6px rgba(26, 115, 232, 0.15);
-        }
-        
-        .paper-out .text-line {
-            width: 75%;
-            height: 4px;
-            background: var(--primary);
-            margin-top: 8px;
-            border-radius: 2px;
-            opacity: 0.8;
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            background: #34a853;
+            top: 20px;
+            right: 22px;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 18px var(--success);
+        }
+
+        .paper-output {
             position: absolute;
-            top: 12px;
-            right: 14px;
-            box-shadow: 0 0 6px rgba(52, 168, 83, 0.6);
+            top: 110px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 0;
+            overflow: hidden;
+            background: white;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 10px 24px rgba(79, 140, 255, 0.25);
+            transition: height 0.4s ease;
         }
 
-        .animating .paper-out {
-            animation: printSlide 3s ease-in-out infinite;
+        .paper-output .line {
+            height: 5px;
+            border-radius: 99px;
+            background: rgba(79, 140, 255, 0.7);
+            margin: 10px 14px;
         }
 
-        .animating .status-dot {
+        .printing .paper-output {
+            animation: paperPrint 3s ease infinite;
+        }
+
+        .printing .printer-led {
             background: var(--primary);
-            box-shadow: 0 0 8px var(--primary);
-            animation: blink 1s infinite alternate;
+            box-shadow: 0 0 20px var(--primary);
+            animation: blink 0.8s infinite alternate;
         }
 
-        @keyframes printSlide {
-            0% { height: 0px; opacity: 1; }
-            80% { height: 90px; opacity: 1; }
-            95% { height: 90px; opacity: 0; }
-            100% { height: 0px; opacity: 0; }
+        @keyframes paperPrint {
+            0% {
+                height: 0;
+                opacity: 1;
+            }
+
+            70% {
+                height: 140px;
+                opacity: 1;
+            }
+
+            90% {
+                height: 140px;
+                opacity: 0;
+            }
+
+            100% {
+                height: 0;
+                opacity: 0;
+            }
         }
 
         @keyframes blink {
-            from { opacity: 1; }
-            to { opacity: 0.4; }
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0.4;
+            }
         }
 
-        /* Logs */
-        .log-box {
-            height: 300px;
+        .job-meta {
+            margin-top: 28px;
+            text-align: center;
+        }
+
+        .job-meta h3 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .job-meta p {
+            margin-top: 10px;
+            color: var(--text-sec);
+        }
+
+        .progress-wrap {
+            margin-top: 18px;
+            width: 100%;
+            max-width: 300px;
+            margin-inline: auto;
+        }
+
+        .progress-bar {
+            height: 12px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #4f8cff, #34d399);
+            border-radius: inherit;
+            transition: width 0.3s ease;
+        }
+
+        .logs {
+            height: 620px;
             overflow-y: auto;
-            background: #f1f3f4;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 6px;
+        }
+
+        .logs::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .logs::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+        }
+
+        .log-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 14px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .log-top {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .log-type {
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .info {
+            color: #93c5fd;
+        }
+
+        .success {
+            color: #6ee7b7;
+        }
+
+        .warn {
+            color: #fde68a;
+        }
+
+        .error {
+            color: #fca5a5;
+        }
+
+        .log-message {
+            color: #e5e7eb;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .footer-note {
+            margin-top: 18px;
+            color: var(--text-sec);
             font-size: 13px;
+            text-align: center;
         }
-
-        .log-entry {
-            margin-bottom: 8px;
-            line-height: 1.4;
-        }
-
-        .log-time {
-            color: #9aa0a6;
-            margin-right: 8px;
-        }
-
-        .log-info { color: var(--primary); }
-        .log-success { color: #34a853; font-weight: bold; }
-        .log-warn { color: #fbbc05; }
-        
-        .connection-status {
-            font-size: 13px;
-            font-weight: bold;
-            color: #ea4335;
-        }
-        .connected {
-            color: #34a853;
-        }
-
     </style>
 </head>
+
 <body>
 
-    <div class="header">
-        <h1>QuickPrint System Visualizer</h1>
-        <p>Real-time simulation of the Queue & Print Agent</p>
-    </div>
+    <div class="dashboard">
 
-    <div class="visualizer-container">
-        
-        <!-- Left: Hardware Simulator -->
-        <div class="card">
-            <h2>Hardware Monitor: Local Agent <span id="conn-status" class="connection-status">Connecting...</span></h2>
-            
-            <div id="printer-sim" class="printer-sim">
-                <div class="paper-in"></div>
-                <div class="printer-body">
-                    <div class="status-dot"></div>
-                </div>
-                <div class="paper-out">
-                    <div class="text-line"></div>
-                    <div class="text-line"></div>
-                    <div class="text-line"></div>
-                    <div class="text-line"></div>
-                </div>
+        <div class="topbar">
+            <div class="title-wrap">
+                <h1>QuickPrint Dashboard</h1>
+                <p>Enterprise-grade real-time print queue monitoring & hardware simulation.</p>
             </div>
 
-            <div style="text-align: center; margin-top: 20px;">
-                <h3 id="current-job" style="margin: 0; color: var(--primary);">Idle</h3>
-                <p id="current-eta" style="margin: 5px 0 0 0; font-size: 14px; color: var(--text-sec);">Waiting for jobs...</p>
+            <div class="status-pill">
+                <div class="pulse"></div>
+                <span id="connectionText">Connecting to backend...</span>
             </div>
         </div>
 
-        <!-- Right: Real-time Event Feed -->
-        <div class="card">
-            <h2>Live System Events</h2>
-            <div id="logbox" class="log-box">
-                <!-- Logs appended here -->
+        <div class="grid">
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h2>Print Engine</h2>
+                    <div class="mini-tag">LIVE TELEMETRY</div>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Jobs Processed</div>
+                        <div class="stat-value" id="jobsProcessed">0</div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label">Queue Size</div>
+                        <div class="stat-value" id="queueCount">0</div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label">Printer Status</div>
+                        <div class="stat-value" id="printerStatus">Ready</div>
+                    </div>
+                </div>
+
+                <div class="printer-stage">
+
+                    <div class="printer-glow"></div>
+
+                    <div id="printer" class="printer">
+                        <div class="paper-stack"></div>
+
+                        <div class="printer-body">
+                            <div class="printer-led"></div>
+                            <div class="printer-slot"></div>
+                        </div>
+
+                        <div class="paper-output">
+                            <div class="line"></div>
+                            <div class="line"></div>
+                            <div class="line"></div>
+                            <div class="line"></div>
+                            <div class="line"></div>
+                        </div>
+                    </div>
+
+                    <div class="job-meta">
+                        <h3 id="currentJob">Idle</h3>
+                        <p id="currentState">Waiting for print jobs...</p>
+
+                        <div class="progress-wrap">
+                            <div class="progress-bar">
+                                <div id="progressFill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
+
+            <div class="card">
+
+                <div class="card-header">
+                    <h2>System Event Stream</h2>
+                    <div class="mini-tag">WEBSOCKET EVENTS</div>
+                </div>
+
+                <div id="logs" class="logs"></div>
+
+                <div class="footer-note">
+                    Real-time queue updates • hardware telemetry • print progress tracking
+                </div>
+
+            </div>
+
         </div>
 
     </div>
 
     <script>
-        const logBox = document.getElementById('logbox');
-        const printerSim = document.getElementById('printer-sim');
-        const currentJobText = document.getElementById('current-job');
-        const connStatus = document.getElementById('conn-status');
+        const logs = document.getElementById('logs');
+        const printer = document.getElementById('printer');
+        const connectionText = document.getElementById('connectionText');
 
-        function addLog(type, message) {
-            const el = document.createElement('div');
-            el.className = 'log-entry';
-            const time = new Date().toLocaleTimeString();
-            el.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
-            logBox.appendChild(el);
-            logBox.scrollTop = logBox.scrollHeight;
+        const currentJob = document.getElementById('currentJob');
+        const currentState = document.getElementById('currentState');
+        const progressFill = document.getElementById('progressFill');
+
+        const jobsProcessed = document.getElementById('jobsProcessed');
+        const queueCount = document.getElementById('queueCount');
+        const printerStatus = document.getElementById('printerStatus');
+
+        let processed = 0;
+        let queue = 0;
+
+        function addLog(type, title, message) {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+
+            const now = new Date().toLocaleTimeString();
+
+            item.innerHTML = `
+        <div class="log-top">
+          <span class="log-type ${type}">${title}</span>
+          <span>${now}</span>
+        </div>
+
+        <div class="log-message">${message}</div>
+      `;
+
+            logs.prepend(item);
         }
 
-        // Connect to NestJS WebSocket Gateway (Namespace: /realtime)
         const socket = io('http://localhost:4000/realtime', {
             transports: ['websocket']
         });
 
         socket.on('connect', () => {
-            connStatus.textContent = 'CONNECTED';
-            connStatus.classList.add('connected');
-            addLog('success', 'Connected to QuickPrint Backend WS');
-            
-            // We subscribe to the local dev shop to see all queue updates
+            connectionText.textContent = 'Connected to QuickPrint backend';
+
+            addLog(
+                'success',
+                'CONNECTED',
+                'WebSocket handshake established successfully.'
+            );
+
             socket.emit('subscribe:shop', 'shop_local_dev');
-            addLog('info', 'Subscribed to shop: shop_local_dev');
+
+            addLog(
+                'info',
+                'SUBSCRIBED',
+                'Listening to queue updates for shop_local_dev.'
+            );
         });
 
         socket.on('disconnect', () => {
-            connStatus.textContent = 'DISCONNECTED';
-            connStatus.classList.remove('connected');
-            addLog('warn', 'Lost connection to backend server');
+            connectionText.textContent = 'Connection lost';
+
+            addLog(
+                'error',
+                'DISCONNECTED',
+                'Lost connection to QuickPrint backend service.'
+            );
         });
 
-        // Event: Job Status updates
         socket.on('job:status', (data) => {
-            addLog('info', `Job <b>${data.jobId.slice(0,8)}</b> changed status to: <b style="text-transform: uppercase;">${data.status}</b>`);
-            
+            const shortId = data.jobId.slice(0, 8);
+
+            addLog(
+                'info',
+                'JOB STATUS',
+                `Job <b>${shortId}</b> changed to <b>${data.status.toUpperCase()}</b>.`
+            );
+
+            if (data.status === 'queued') {
+                queue++;
+                queueCount.textContent = queue;
+
+                currentJob.textContent = `Queued Job ${shortId}`;
+                currentState.textContent = 'Awaiting printer availability...';
+            }
+
             if (data.status === 'printing') {
-                printerSim.classList.add('animating');
-                currentJobText.textContent = `Printing Job ${data.jobId.slice(0,8)}`;
-            } else if (data.status === 'completed') {
-                printerSim.classList.remove('animating');
-                currentJobText.textContent = 'Idle';
-                addLog('success', `Job ${data.jobId.slice(0,8)} successfully completed! Paper dropped in tray.`);
-            } else if (data.status === 'queued') {
-                // Ignore, handled below in position
+                printer.classList.add('printing');
+
+                currentJob.textContent = `Printing ${shortId}`;
+                currentState.textContent = 'Printer is actively processing pages.';
+
+                printerStatus.textContent = 'Printing';
+            }
+
+            if (data.status === 'completed') {
+                printer.classList.remove('printing');
+
+                currentJob.textContent = 'Idle';
+                currentState.textContent = 'Ready for the next print request.';
+
+                printerStatus.textContent = 'Ready';
+
+                progressFill.style.width = '100%';
+
+                processed++;
+                jobsProcessed.textContent = processed;
+
+                queue = Math.max(0, queue - 1);
+                queueCount.textContent = queue;
+
+                setTimeout(() => {
+                    progressFill.style.width = '0%';
+                }, 1200);
+
+                addLog(
+                    'success',
+                    'COMPLETED',
+                    `Print job ${shortId} finished successfully.`
+                );
             }
         });
 
-        // Event: Queue Positions
         socket.on('queue:position', (data) => {
-            addLog('info', `Job ${data.jobId.slice(0,8)} is in queue at position ${data.position}`);
+            addLog(
+                'info',
+                'QUEUE UPDATE',
+                `Job ${data.jobId.slice(0, 8)} is currently at queue position ${data.position}.`
+            );
         });
 
-        // Event: Print Agent sending progress pages
         socket.on('job:progress', (data) => {
-            addLog('info', `Print Progress: Page ${data.pagesPrinted} of ${data.pagesTotal}`);
+            const progress = (data.pagesPrinted / data.pagesTotal) * 100;
+
+            progressFill.style.width = `${progress}%`;
+
+            currentState.textContent = `Printing page ${data.pagesPrinted} of ${data.pagesTotal}`;
+
+            addLog(
+                'info',
+                'PRINT PROGRESS',
+                `Printed page ${data.pagesPrinted} / ${data.pagesTotal}.`
+            );
         });
 
-        // Event: Printer Health
         socket.on('printer:status', (data) => {
-            addLog('info', `Printer Hardware [${data.printerId}] status: ${data.status}`);
-        });
+            printerStatus.textContent = data.status;
 
+            addLog(
+                'warn',
+                'PRINTER STATUS',
+                `Printer ${data.printerId} status updated to ${data.status}.`
+            );
+        });
     </script>
+
 </body>
+
 </html>

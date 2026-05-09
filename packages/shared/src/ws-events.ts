@@ -1,5 +1,18 @@
 import type { PrintJobStatus, PrinterStatus } from './enums';
 
+export interface AgentAssignedJobPayload {
+  id: string;
+  fileUrl: string;
+  fileName: string;
+  fileHash?: string;
+  printerId: string;
+  copies: number;
+  duplex: boolean;
+  color: boolean;
+  paperSize: string;
+  pageRange?: string;
+}
+
 /**
  * Server → Client events. Clients (web, admin, agent) subscribe to rooms
  * keyed by jobId, printerId, or shopId.
@@ -14,6 +27,7 @@ export interface ServerToClientEvents {
     tonerLevel?: number;
     message?: string;
   }) => void;
+  'agent:job-assigned': (p: AgentAssignedJobPayload) => void;
   'queue:paused': (p: { shopId: string; reason: string }) => void;
   'queue:resumed': (p: { shopId: string }) => void;
   'queue:position': (p: { jobId: string; position: number; etaSeconds: number }) => void;

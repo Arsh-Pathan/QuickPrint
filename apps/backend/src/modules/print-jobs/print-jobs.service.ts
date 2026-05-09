@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Printer } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PricingService } from '../pricing/pricing.service';
 import { FilesService } from '../files/files.service';
@@ -18,6 +19,12 @@ export class PrintJobsService {
     private readonly realtime: RealtimeGateway,
   ) {}
 
+  /**
+   * Creates a new print job.
+   * 1. Analyzes the file for page count and integrity hash.
+   * 2. Calculates a price quote based on analysis and settings.
+   * 3. Persists the job in the database with 'CREATED' status.
+   */
   async create(userId: string, dto: CreatePrintJobDto) {
     const analysis = await this.files.analyze(dto.fileKey, dto.mimeType);
     const breakdown = this.pricing.quote(analysis.pages, analysis.colorPages, dto.settings);
@@ -29,6 +36,7 @@ export class PrintJobsService {
         fileName: dto.fileName,
         fileSize: dto.fileSize,
         mimeType: dto.mimeType,
+        fileHash: analysis.fileHash,
         pages: analysis.pages,
         colorPages: analysis.colorPages,
         color: dto.settings.color,
@@ -42,6 +50,9 @@ export class PrintJobsService {
     });
   }
 
+  /**
+   * Retrieves a single job, verifying ownership for security.
+   */
   async findOwned(userId: string, jobId: string) {
     const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('job_not_found');
@@ -49,6 +60,9 @@ export class PrintJobsService {
     return job;
   }
 
+  /**
+   * Lists the most recent jobs for a specific user.
+   */
   async listForUser(userId: string) {
     return this.prisma.printJob.findMany({
       where: { ownerId: userId },
@@ -79,7 +93,10 @@ export class PrintJobsService {
     });
   }
 
-  /** Aggregate stats for the admin Overview page (today only by default). */
+  /** 
+   * Aggregates stats for the admin Overview page (today only by default). 
+   * Calculates earnings, completed, failed, and queued job counts.
+   */
   async statsForAdmin(shopId?: string) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -110,14 +127,11 @@ export class PrintJobsService {
   }
 
   /**
-   * Called by PaymentsService after a successful Razorpay capture.
-   * Idempotent on (jobId): repeated calls produce the same end state.
-   *
-   * Flow:
-   *   1. PrintJob.status = PAID
-   *   2. enqueue → QueueEntry row + status = QUEUED
-   *   3. emit job:status to subscribed student client
-   *   4. push agent:job-assigned to the shop's online agent (if any)
+   * Transitions a job to the PAID and QUEUED state.
+   * 1. Updates status in DB.
+   * 2. Adds job to the shop's logical queue.
+   * 3. Broadcasts status update via WebSockets.
+   * 4. Picks an available printer and assigns the job to the shop agent.
    */
   async markPaidAndEnqueue(jobId: string) {
     const job = await this.prisma.printJob.update({
@@ -134,6 +148,7 @@ export class PrintJobsService {
       id: job.id,
       fileUrl: downloadUrl,
       fileName: job.fileName,
+      fileHash: job.fileHash ?? undefined,
       printerId: printer?.id ?? 'default',
       copies: job.copies,
       duplex: job.duplex,
@@ -149,11 +164,11 @@ export class PrintJobsService {
   }
 
   /**
-   * Pick the best printer for a job. Strategy: first online printer at the
-   * shop that supports the requested capabilities. Returns null if none
-   * found — agent falls back to its default.
+   * Strategic printer selection. 
+   * Strictly routes jobs based on the session's color requirement.
+   * Color jobs MUST go to a printer with 'supportsColor: true'.
    */
-  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean }) {
+  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean }): Promise<Printer | null> {
     const candidates = await this.prisma.printer.findMany({
       where: {
         shopId,
@@ -161,8 +176,15 @@ export class PrintJobsService {
         ...(job.color ? { supportsColor: true } : {}),
         ...(job.duplex ? { supportsDuplex: true } : {}),
       },
+      // Prefer the most recently seen active printer
       orderBy: { lastSeenAt: 'desc' },
     });
+    
+    // If no exact match found for duplex + color, try without duplex constraint
+    if (candidates.length === 0 && job.duplex) {
+      return this.pickPrinter(shopId, { ...job, duplex: false });
+    }
+
     return candidates[0] ?? null;
   }
 }
