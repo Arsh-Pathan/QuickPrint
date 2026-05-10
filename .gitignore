@@ -39,8 +39,10 @@ coverage/
 apps/backend/prisma/migrations/dev.db*
 
 # Print agent local state
-apps/print-agent/local-queue/
-apps/print-agent/release/
+apps/desktop-app/local-queue/
+apps/desktop-app/release/
 
 # Misc
 *.local
+visualizer.html
+dummy.pdf

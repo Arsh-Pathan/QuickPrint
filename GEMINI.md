@@ -9,7 +9,7 @@ QuickPrint is an npm-workspaces monorepo with these main workspaces:
 - `apps/backend`: NestJS API and Socket.IO gateway
 - `apps/web`: student-facing Next.js app
 - `apps/admin`: admin-facing Next.js app
-- `apps/print-agent`: Electron desktop print agent
+- `apps/desktop-app`: Electron desktop service orchestrator + print agent
 - `packages/shared`: shared TypeScript types, schemas, pricing logic, and WebSocket contracts
 
 ## Current Stack
@@ -45,7 +45,7 @@ Root:
 - `npm.cmd run dev:backend`
 - `npm.cmd run dev:web`
 - `npm.cmd run dev:admin`
-- `npm.cmd run dev:agent`
+- `npm.cmd run dev:desktop`
 - `npm.cmd run build`
 - `npm.cmd run typecheck`
 - `npm.cmd run test`
@@ -59,7 +59,7 @@ Workspace highlights:
 - backend: `build`, `start:dev`, `typecheck`, `prisma:generate`, `prisma:migrate`
 - web: `dev`, `build`, `typecheck`
 - admin: `dev`, `build`, `typecheck`
-- print-agent: `build`, `dev`, `typecheck`, `package:win`
+- desktop-app: `build`, `dev`, `typecheck`, `package:win`
 
 ## Current Docs
 

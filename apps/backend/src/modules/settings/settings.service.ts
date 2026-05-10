@@ -38,7 +38,16 @@ export class SettingsService {
     if (this.cache) return this.cache;
     const row = await this.prisma.setting.findUnique({ where: { key: SETTINGS_KEY } });
     const defaults = this.envDefaults();
-    const stored = (row?.value as Partial<ShopSettings>) ?? {};
+    
+    let stored: Partial<ShopSettings> = {};
+    if (row?.value) {
+      try {
+        stored = JSON.parse(row.value) as Partial<ShopSettings>;
+      } catch (e: any) {
+        this.logger.error(`Failed to parse settings JSON: ${e.message}`);
+      }
+    }
+
     this.cache = { ...defaults, ...stored };
     return this.cache;
   }
@@ -51,8 +60,8 @@ export class SettingsService {
 
     await this.prisma.setting.upsert({
       where: { key: SETTINGS_KEY },
-      update: { value: next as object },
-      create: { key: SETTINGS_KEY, value: next as object },
+      update: { value: JSON.stringify(next) },
+      create: { key: SETTINGS_KEY, value: JSON.stringify(next) },
     });
     this.cache = next;
     return next;

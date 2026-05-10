@@ -9,6 +9,36 @@ log.initialize();
 log.transports.file.level = 'info';
 log.info('QuickPrint Agent starting');
 
+// PROD MODULE RESOLUTION FIX: In packaged builds, native modules are unpacked to app.asar.unpacked.
+// We need to ensure Node knows where to find them, especially since the main.js is nested.
+if (app.isPackaged) {
+  const mod = require('node:module');
+  const resourcesPath = process.resourcesPath;
+  const unpackedNodeModules = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules');
+  const asarNodeModules = path.join(resourcesPath, 'app.asar', 'node_modules');
+  
+  // Inject these paths into the module search algorithm
+  if (mod.globalPaths) {
+    mod.globalPaths.push(unpackedNodeModules);
+    mod.globalPaths.push(asarNodeModules);
+  }
+  
+  // Also fix for the current process relative to this script
+  process.env.NODE_PATH = [
+    unpackedNodeModules,
+    asarNodeModules,
+    process.env.NODE_PATH
+  ].filter(Boolean).join(path.delimiter);
+  
+  // @ts-ignore - Re-initialize the module system's path cache
+  mod._initPaths();
+  
+  log.info('Native module resolution paths injected:', {
+    unpacked: unpackedNodeModules,
+    asar: asarNodeModules
+  });
+}
+
 /**
  * The agent window embeds the admin dashboard (http://localhost:3001) so the
  * shop owner has one desktop app for everything: agent service runs in this
@@ -17,7 +47,7 @@ log.info('QuickPrint Agent starting');
  * Future: a bundled launcher will start backend + admin + Postgres before
  * opening this window. See docs/CRITICAL_FIXES_AND_SCENARIOS.md §4.
  */
-const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
+const ADMIN_URL = process.env.ADMIN_URL ?? 'http://127.0.0.1:3001';
 const ADMIN_LOAD_RETRY_MS = 2000;
 const ADMIN_LOAD_MAX_RETRIES = 90; // 3 minutes — plenty of time for DB migration
 
@@ -166,26 +196,52 @@ app.whenReady().then(async () => {
   log.info(`Service Orchestrator active. App Mode: ${app.isPackaged ? 'PROD' : 'DEV'}`);
   launcher = new Launcher(rootDir);
 
-  // AUTOMATED STARTUP: Check for Docker and launch services
-  log.info('Checking for Docker environment...');
-  exec('docker info', (infoErr) => {
-    if (infoErr) {
-      log.warn('Docker not found or not running. Falling back to BARE METAL mode...');
-      launcher?.startAll();
-      return;
+  if (app.isPackaged) {
+    log.info('Packaged mode detected. Starting bundled services directly...');
+    if (mainWindow) {
+      launcher
+        ?.startAll(mainWindow)
+        .catch((error) => {
+          log.error('Bundled service startup failed:', error);
+          mainWindow?.loadURL(
+            loadingScreenDataUrl(
+              0,
+              true,
+              'QuickPrint could not start its local services. Please restart the app.',
+            ),
+          ).catch(() => undefined);
+        });
     }
-
-    log.info('Orchestrating local infrastructure via Docker...');
-    exec('docker-compose up -d', { cwd: rootDir }, (error) => {
-      if (error) {
-        log.error('Docker orchestration failed:', error);
-        log.info('Attempting BARE METAL fallback after Docker failure...');
-        launcher?.startAll();
-      } else {
-        log.info('Docker services started successfully');
+  } else {
+    // AUTOMATED STARTUP: Check for Docker and launch services
+    log.info('Checking for Docker environment...');
+    exec('docker info', (infoErr) => {
+      if (infoErr) {
+        log.warn('Docker not found or not running. Falling back to BARE METAL mode...');
+        if (mainWindow) {
+          launcher
+            ?.startAll(mainWindow)
+            .catch((error) => log.error('Bare metal fallback failed:', error));
+        }
+        return;
       }
+
+      log.info('Orchestrating local infrastructure via Docker...');
+      exec('docker-compose up -d', { cwd: rootDir }, (error) => {
+        if (error) {
+          log.error('Docker orchestration failed:', error);
+          log.info('Attempting BARE METAL fallback after Docker failure...');
+          if (mainWindow) {
+            launcher
+              ?.startAll(mainWindow)
+              .catch((fallbackError) => log.error('Bare metal fallback failed:', fallbackError));
+          }
+        } else {
+          log.info('Docker services started successfully');
+        }
+      });
     });
-  });
+  }
 
   // Register Docker Handlers for manual control if needed
   ipcMain.handle('docker:start', () => {
@@ -216,7 +272,9 @@ app.whenReady().then(async () => {
 app.on('before-quit', async () => {
   log.info('Shutting down local infrastructure...');
   launcher?.stopAll();
-  exec('docker-compose stop', { cwd: path.join(__dirname, '../../../../') });
+  if (!app.isPackaged) {
+    exec('docker-compose stop', { cwd: path.join(__dirname, '../../../../') });
+  }
   await stopAgent();
 });
 

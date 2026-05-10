@@ -47,7 +47,14 @@
       "Bash(xargs -I {} dirname {})",
       "Bash(grep -rn \"^[[:space:]]*//.*\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist .)",
       "Bash(npm.cmd --workspace apps/backend run typecheck)",
-      "Bash(npm.cmd --workspace apps/admin run typecheck)"
+      "Bash(npm.cmd --workspace apps/admin run typecheck)",
+      "Bash(npx --yes @electron/asar list /c/Users/ArshPathan/AppData/Local/Programs/QuickPrint/resources/app.asar)",
+      "Bash(npx --yes @electron/asar list \"/c/Users/ArshPathan/AppData/Local/Programs/QuickPrint/resources/app.asar\")",
+      "Bash(grep -E \"^\\\\\\\\\\\\\\\\node_modules\")",
+      "Bash(grep -iE \"^\\\\\\\\\\\\\\\\node_modules\\\\\\\\\\\\\\\\\\(@?pris|prisma|\\\\.prisma\\)\")",
+      "Bash(grep -E \"^\\\\\\\\\\\\\\\\node_modules\\\\\\\\\\\\\\\\[^\\\\\\\\\\\\\\\\]+$\")",
+      "Bash(grep -cE \"^\\\\\\\\\\\\\\\\node_modules\\\\\\\\\\\\\\\\[^\\\\\\\\\\\\\\\\]+$\")",
+      "Bash(awk -F'\\\\\\\\\\\\\\\\' 'NF==3 && $2==\"node_modules\" {print $3}')"
     ]
   }
 }

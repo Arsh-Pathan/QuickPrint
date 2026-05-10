@@ -12,7 +12,7 @@
     "dev:backend": "npm --workspace apps/backend run start:dev",
     "dev:web": "npm --workspace apps/web run dev",
     "dev:admin": "npm --workspace apps/admin run dev",
-    "dev:desktop": "npm --workspace apps/print-agent run dev",
+    "dev:desktop": "npm --workspace apps/desktop-app run dev",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -21,7 +21,18 @@
     "db:generate": "npm --workspace apps/backend run prisma:generate",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "package": "electron-builder --project apps/desktop-app"
+    "package": "npm run rebuild && npm run build && npx prisma generate --schema=apps/backend/prisma/schema.sqlite.prisma && electron-builder",
+    "rebuild": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "better-sqlite3": "^11.3.0",
+    "electron-log": "^5.2.0",
+    "electron-store": "^10.0.0",
+    "p-queue": "^8.0.1",
+    "pdf-to-printer": "^5.6.0",
+    "pino": "^9.5.0",
+    "socket.io-client": "^4.8.0"
   },
   "main": "apps/desktop-app/dist/main.js",
   "build": {
@@ -34,21 +45,34 @@
     "files": [
       "apps/desktop-app/dist/**/*",
       "apps/backend/dist/**/*",
+      "apps/backend/prisma/**/*",
       "apps/admin/.next/**/*",
+      "apps/admin/public/**/*",
+      {
+        "from": "apps/admin/.next/static",
+        "to": "apps/admin/.next/standalone/apps/admin/.next/static"
+      },
+      {
+        "from": "apps/admin/public",
+        "to": "apps/admin/.next/standalone/apps/admin/public"
+      },
       "apps/web/.next/**/*",
+      "apps/web/public/**/*",
+      {
+        "from": "apps/web/.next/static",
+        "to": "apps/web/.next/standalone/apps/web/.next/static"
+      },
+      {
+        "from": "apps/web/public",
+        "to": "apps/web/.next/standalone/apps/web/public"
+      },
       "packages/shared/dist/**/*",
       "packages/shared/package.json",
       "node_modules/**/*",
+      "node_modules/.prisma/**/*",
+      "node_modules/@prisma/engines/**/*",
       "!**/node_modules/*/{test,tests,example,examples,bench,benchmarks}/**/*",
       "!**/*.{ts,tsx,map,md,log}"
-    ],
-    "extraResources": [
-      {
-        "from": "scripts/switch-db.js",
-        "to": "scripts/switch-db.js"
-      },
-      "apps/backend/prisma/schema.prisma",
-      "apps/backend/prisma/dev.db"
     ],
     "asar": true,
     "asarUnpack": [
@@ -56,11 +80,33 @@
       "apps/admin",
       "apps/web",
       "packages/shared",
+      "apps/backend/prisma/template.db",
       "node_modules/next",
+      "node_modules/@prisma",
       "node_modules/@prisma/client",
+      "node_modules/@prisma/engines",
+      "node_modules/.prisma",
       "node_modules/.bin",
       "**/node_modules/better-sqlite3/**/*",
       "**/node_modules/pdf-to-printer/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/.prisma/client/query_engine-windows.dll.node",
+        "to": "prisma/query_engine-windows.dll.node"
+      },
+      {
+        "from": "node_modules/@prisma/engines/schema-engine-windows.exe",
+        "to": "prisma/schema-engine-windows.exe"
+      },
+      {
+        "from": "apps/admin/.next/standalone/node_modules",
+        "to": "app.asar.unpacked/apps/admin/.next/standalone/node_modules"
+      },
+      {
+        "from": "apps/web/.next/standalone/node_modules",
+        "to": "app.asar.unpacked/apps/web/.next/standalone/node_modules"
+      }
     ],
     "win": {
       "target": [
@@ -83,18 +129,9 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.5",
+    "electron-rebuild": "^3.3.0",
     "prettier": "^3.3.3",
     "typescript": "^5.6.3",
     "vitest": "^4.1.5"
-  },
-  "dependencies": {
-    "axios": "^1.16.0",
-    "better-sqlite3": "^12.9.0",
-    "electron-log": "^5.4.3",
-    "electron-store": "^11.0.2",
-    "p-queue": "^9.2.0",
-    "pdf-to-printer": "^5.8.0",
-    "pino": "^10.3.1",
-    "socket.io-client": "^4.8.3"
   }
 }

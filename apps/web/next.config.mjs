@@ -7,11 +7,11 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.INTERNAL_API_URL || 'http://backend:4000'}/api/:path*`, // Proxy to Backend
+        destination: `${process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000'}/api/:path*`, // Proxy to Backend
       },
       {
         source: '/socket.io/:path*',
-        destination: `${process.env.INTERNAL_API_URL || 'http://backend:4000'}/socket.io/:path*`, // Proxy logic for WebSocket if necessary
+        destination: `${process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000'}/socket.io/:path*`, // Proxy logic for WebSocket if necessary
       }
     ];
   },

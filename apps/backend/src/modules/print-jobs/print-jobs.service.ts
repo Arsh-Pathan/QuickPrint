@@ -54,7 +54,7 @@ export class PrintJobsService {
         paperSize: dto.settings.paperSize?.toUpperCase() as any,
         pageRange: dto.settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
-        priceBreakdown: breakdown as unknown as object,
+        priceBreakdown: JSON.stringify(breakdown),
       },
     });
   }
