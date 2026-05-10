@@ -56,4 +56,5 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  getPrinters: () => http<any[]>('/printers'),
 };

@@ -55,6 +55,7 @@ export class PrintJobsService {
         pageRange: dto.settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
         priceBreakdown: JSON.stringify(breakdown),
+        printerId: dto.printerId, // Persist the targeted printer if provided
       },
     });
   }
@@ -176,8 +177,23 @@ export class PrintJobsService {
    * Strategic printer selection. 
    * Strictly routes jobs based on the session's color requirement.
    * Color jobs MUST go to a printer with 'supportsColor: true'.
+   * Color jobs MUST go to a printer with 'supportsColor: true'.
    */
-  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean }): Promise<{ id: string; [k: string]: unknown } | null> {
+  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean; printerId?: string | null }): Promise<{ id: string; [k: string]: unknown } | null> {
+    // If a specific printer was requested, check if it exists and is online
+    if (job.printerId) {
+      const target = await this.prisma.printer.findUnique({
+        where: { id: job.printerId }
+      });
+      if (target && target.status === 'ONLINE') {
+        const canColor = !job.color || target.supportsColor;
+        const canDuplex = !job.duplex || target.supportsDuplex;
+        if (canColor && canDuplex) {
+          return target;
+        }
+      }
+    }
+
     const candidates = await this.prisma.printer.findMany({
       where: {
         shopId,

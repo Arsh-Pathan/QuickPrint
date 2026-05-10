@@ -12,7 +12,7 @@ const HEALTH_REQUEST_TIMEOUT_MS = 2000;
 const SERVICE_READY_TIMEOUT_MS = 90_000;
 const SERVICE_RESTART_LIMIT = 2;
 
-type ServiceName = 'backend' | 'admin' | 'web';
+type ServiceName = 'backend' | 'admin' | 'web' | 'tunnel';
 
 interface ServiceConfig {
   name: ServiceName;
@@ -85,6 +85,9 @@ export class Launcher {
     ]);
 
     this.setStatus('QuickPrint is ready.');
+
+    // Start tunnel in background if a token exists
+    this.startTunnelSupport();
   }
 
   stopAll() {
@@ -168,6 +171,93 @@ export class Launcher {
         INTERNAL_API_URL: `http://127.0.0.1:${BACKEND_PORT}`,
       },
     };
+  }
+
+  private startTunnelSupport() {
+    // Periodically check for tunnel token and start if found
+    setInterval(async () => {
+      if (this.processes.has('tunnel') || this.stopping) return;
+      const token = await this.getTunnelToken();
+      if (token) {
+        log.info('Launcher: Active Tunnel Token discovered, starting cloudflared...');
+        this.spawnTunnel(token);
+      }
+    }, 30_000);
+    
+    // Immediate check
+    this.getTunnelToken().then(token => {
+      if (token) this.spawnTunnel(token);
+    });
+  }
+
+  private async getTunnelToken(): Promise<string | null> {
+    // 1. Check environment variables first (Dev mode / Docker)
+    if (process.env.CLOUDFLARE_TUNNEL_TOKEN) return process.env.CLOUDFLARE_TUNNEL_TOKEN;
+
+    // 2. Check the database
+    try {
+      const BetterSqlite = require('better-sqlite3');
+      // In dev, the DB might be in the backend folder. In prod, it's in userData.
+      const dbPath = app.isPackaged 
+        ? this.dbPath 
+        : path.join(this.rootDir, 'apps/backend/prisma/dev.db');
+
+      if (!fs.existsSync(dbPath)) return null;
+
+      const db = new BetterSqlite(dbPath);
+      const row = db.prepare("SELECT value FROM Setting WHERE key = 'shop'").get() as any;
+      db.close();
+      
+      if (row) {
+        const settings = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        return settings.cloudflareToken || null;
+      }
+    } catch (e) {
+      log.warn('Launcher: Could not read tunnel token from database', e);
+    }
+    return null;
+  }
+
+  private spawnTunnel(token: string) {
+    try {
+      // Priority 1: Bundled bin in apps/desktop-app/bin (Best for Zero-Setup)
+      // rootDir is already app.asar.unpacked in production.
+      const bundledPath = path.join(this.rootDir, 'apps/desktop-app/bin/cloudflared.exe');
+      
+      // Priority 2: In Dev mode root
+      const devPath = path.join(this.rootDir, 'cloudflared.exe');
+
+      // Priority 3: Fallback to the npm package if installed
+      let packagePath = null;
+      try { packagePath = require('cloudflared').bin; } catch {}
+
+      const cloudflaredPath = fs.existsSync(bundledPath) ? bundledPath 
+                            : fs.existsSync(devPath) ? devPath
+                            : packagePath || 'cloudflared';
+      
+      log.info(`Launcher: Spawning tunnel using engine at ${cloudflaredPath}`);
+      
+      const proc = spawn(cloudflaredPath, ['tunnel', '--no-autoupdate', 'run', '--token', token], {
+        shell: false, // Use false now that we have the full path
+        windowsHide: true,
+      });
+
+      this.processes.set('tunnel', {
+        name: 'tunnel',
+        proc,
+        ready: true
+      });
+
+      proc.stdout?.on('data', (data) => log.info(`[tunnel] ${data.toString().trim()}`));
+      proc.stderr?.on('data', (data) => log.warn(`[tunnel] ${data.toString().trim()}`));
+
+      proc.on('close', (code) => {
+        log.warn(`Launcher: Tunnel process exited with code ${code}`);
+        this.processes.delete('tunnel');
+      });
+    } catch (err: any) {
+      log.error('Launcher: Failed to start tunnel using cloudflared package', err.message);
+    }
   }
 
   private async initDatabase() {

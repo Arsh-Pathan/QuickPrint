@@ -1,25 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SettingsService } from '@/lib/settings';
+import { SettingsService, ShopSettings } from '@/lib/settings';
 
 export function SettingsForm() {
-  const [settings, setSettings] = useState<{
-    shopName: string;
-    bwPaise: number;
-    colorPaise: number;
-    duplexDiscountPct: number;
-    defaultPaperSize: 'A4' | 'A3' | 'LETTER' | 'LEGAL';
-    acceptingJobs: boolean;
-  }>({
+  const [settings, setSettings] = useState<ShopSettings>({
     shopName: '',
     bwPaise: 0,
     colorPaise: 0,
     duplexDiscountPct: 0,
     defaultPaperSize: 'A4',
     acceptingJobs: true,
+    publicUrl: '',
+    cloudflareToken: '',
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -44,8 +39,8 @@ export function SettingsForm() {
       setSuccess(null);
       await SettingsService.updateSettings(settings);
       setSuccess('Settings saved successfully!');
-    } catch (err) {
-      setError('Failed to save settings');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save settings');
     } finally {
       setLoading(false);
     }
@@ -165,6 +160,42 @@ export function SettingsForm() {
           Accepting Jobs
         </label>
       </div>
+
+      <div className="border-t border-[#dadce0] pt-6 space-y-6">
+        <h3 className="text-[13px] font-semibold text-[#202124] uppercase tracking-wider">Public Access (Tunnels)</h3>
+        
+        <div>
+          <label htmlFor="publicUrl" className="block text-sm font-medium text-gray-700 mb-1" title="Example: https://yourshop.ngrok-free.app or https://print.yourdomain.com">
+            Student Web Public URL
+          </label>
+          <input
+            id="publicUrl"
+            type="url"
+            placeholder="https://..."
+            value={settings.publicUrl || ''}
+            onChange={(e) => setSettings({ ...settings, publicUrl: e.target.value })}
+            disabled={loading}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <p className="mt-1 text-[11px] text-[#5f6368]">Points your student QR code to this address.</p>
+        </div>
+
+        <div>
+          <label htmlFor="cloudflareToken" className="block text-sm font-medium text-gray-700 mb-1">
+            Cloudflare Tunnel Token (Optional)
+          </label>
+          <input
+            id="cloudflareToken"
+            type="password"
+            placeholder="Your long tunnel token..."
+            value={settings.cloudflareToken || ''}
+            onChange={(e) => setSettings({ ...settings, cloudflareToken: e.target.value })}
+            disabled={loading}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
+          <p className="mt-1 text-[11px] text-[#5f6368]">If provided, the desktop app will try to start the tunnel automatically.</p>
+        </div>
+      </div>
       
       <div className="flex items-center justify-end">
         <button
@@ -175,6 +206,28 @@ export function SettingsForm() {
           {loading ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
+
+      {/* Sync QR Preview in Settings Page when URL changes */}
+      {typeof window !== 'undefined' && settings.publicUrl && (
+        <SyncQRPreview url={settings.publicUrl} />
+      )}
     </form>
   );
+}
+
+function SyncQRPreview({ url }: { url: string }) {
+  useEffect(() => {
+    const preview = document.getElementById('qr-preview');
+    if (preview && url) {
+      preview.innerHTML = `
+        <div class="flex flex-col items-center gap-3 animate-in fade-in duration-500">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}" 
+               alt="QR Code" 
+               class="w-48 h-48 rounded shadow-sm border border-[#dadce0]" />
+          <div class="text-[11px] text-indigo-600 font-medium truncate max-w-[200px] bg-indigo-50 px-2 py-0.5 rounded-full">${url}</div>
+        </div>
+      `;
+    }
+  }, [url]);
+  return null;
 }

@@ -120,7 +120,7 @@ export default function UploadPage() {
         }
       };
 
-      const rzp = new window.Razorpay(options);
+      const rzp = new (window as any).Razorpay(options);
       rzp.open();
 
     } catch (err: any) {
@@ -174,7 +174,6 @@ export default function UploadPage() {
 
         {step === 'choose' ? (
           <div className="w-full max-w-md" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
-            {/* Drag & drop zone */}
             <label 
               className={`google-card group flex w-full cursor-pointer flex-col items-center justify-center border-2 border-dashed p-16 transition-all duration-300 ${
                 dragActive 
@@ -213,7 +212,6 @@ export default function UploadPage() {
               </p>
             </label>
 
-            {/* Pricing cards */}
             <div className="mt-8 grid grid-cols-2 gap-4">
               <div className="google-card flex items-center gap-4 !p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">
@@ -237,7 +235,6 @@ export default function UploadPage() {
           </div>
         ) : (
           <div className="flex w-full flex-col gap-6 lg:flex-row" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
-            {/* Preview column */}
             <div className="flex-1 space-y-4">
               <button 
                 onClick={() => setStep('choose')}
@@ -246,7 +243,6 @@ export default function UploadPage() {
                 <ChevronLeft className="h-4 w-4" /> Change file
               </button>
 
-              {/* File name chip */}
               <div className="flex items-center gap-2 rounded-full bg-[#f1f3f4] px-4 py-2 w-fit">
                 <FileText className="h-4 w-4 text-[#5f6368]" />
                 <span className="text-sm font-medium text-[#3c4043] truncate max-w-[200px]">{file?.name}</span>
@@ -255,10 +251,8 @@ export default function UploadPage() {
               <FilePreview file={file!} />
             </div>
 
-            {/* Settings panel */}
             <div className="w-full lg:w-[400px]">
               <div className="google-card flex flex-col gap-6">
-                {/* Section header */}
                 <div className="flex items-center gap-3 border-b border-[#dadce0] pb-4">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50">
                     <Settings2 className="h-4 w-4 text-brand-500" />
@@ -266,9 +260,7 @@ export default function UploadPage() {
                   <h2 className="text-[16px] font-medium text-[#202124]">Print Settings</h2>
                 </div>
 
-                {/* Settings list */}
                 <div className="space-y-5">
-                  {/* Copies */}
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#3c4043]">Copies</label>
                     <div className="flex items-center gap-2">
@@ -284,7 +276,6 @@ export default function UploadPage() {
                     </div>
                   </div>
 
-                  {/* Color Mode */}
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#3c4043]">Color</label>
                     <div className="flex gap-1 p-1 bg-[#f1f3f4] rounded-full">
@@ -303,7 +294,6 @@ export default function UploadPage() {
                     </div>
                   </div>
 
-                  {/* Duplex */}
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#3c4043]">Double-sided</label>
                     <button 
@@ -319,7 +309,6 @@ export default function UploadPage() {
                   </div>
                 </div>
 
-                {/* Price & CTA */}
                 <div className="mt-2 pt-5 border-t border-[#dadce0]">
                   <div className="flex items-end justify-between mb-6">
                     <span className="text-sm text-[#5f6368]">Estimated Total</span>

@@ -9,6 +9,8 @@ export interface ShopSettings {
   duplexDiscountPct: number;
   defaultPaperSize: 'A4' | 'A3' | 'LETTER' | 'LEGAL';
   acceptingJobs: boolean;
+  publicUrl?: string;       // e.g. https://print.maddy.com
+  cloudflareToken?: string; // Tunnel token for persistent access
 }
 
 const SETTINGS_KEY = 'shop';
@@ -42,7 +44,10 @@ export class SettingsService {
     let stored: Partial<ShopSettings> = {};
     if (row?.value) {
       try {
-        stored = JSON.parse(row.value) as Partial<ShopSettings>;
+        // Handle both Postgres (returns Object) and SQLite (returns String)
+        stored = typeof row.value === 'string' 
+          ? JSON.parse(row.value) 
+          : row.value;
       } catch (e: any) {
         this.logger.error(`Failed to parse settings JSON: ${e.message}`);
       }
@@ -55,6 +60,12 @@ export class SettingsService {
   async update(patch: Partial<ShopSettings>): Promise<ShopSettings> {
     const current = await this.get();
     const next: ShopSettings = { ...current, ...patch };
+    
+    // Auto-fix double https:// typos
+    if (next.publicUrl) {
+      next.publicUrl = next.publicUrl.replace(/^https?:\/\/https?:\/\//, 'https://');
+    }
+
     if (next.bwPaise < 0 || next.colorPaise < 0) throw new Error('invalid_price');
     if (next.duplexDiscountPct < 0 || next.duplexDiscountPct > 100) throw new Error('invalid_discount');
 

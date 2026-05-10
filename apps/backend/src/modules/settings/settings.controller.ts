@@ -7,12 +7,14 @@ import { RolesGuard } from '../auth/roles.guard';
 import { SettingsService } from './settings.service';
 
 class UpdateSettingsDto {
-  @IsOptional() @IsString() @Length(1, 120) shopName?: string;
-  @IsOptional() @IsInt() @Min(0) @Max(1_000_000) bwPaise?: number;
-  @IsOptional() @IsInt() @Min(0) @Max(1_000_000) colorPaise?: number;
+  @IsOptional() @IsString() shopName?: string;
+  @IsOptional() @IsInt() @Min(0) bwPaise?: number;
+  @IsOptional() @IsInt() @Min(0) colorPaise?: number;
   @IsOptional() @IsInt() @Min(0) @Max(100) duplexDiscountPct?: number;
-  @IsOptional() @IsIn(['A4', 'A3', 'LETTER', 'LEGAL']) defaultPaperSize?: 'A4' | 'A3' | 'LETTER' | 'LEGAL';
+  @IsOptional() @IsString() defaultPaperSize?: string;
   @IsOptional() @IsBoolean() acceptingJobs?: boolean;
+  @IsOptional() @IsString() publicUrl?: string;
+  @IsOptional() @IsString() cloudflareToken?: string;
 }
 
 @ApiTags('settings')
@@ -43,6 +45,6 @@ export class SettingsController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
   update(@Body() dto: UpdateSettingsDto) {
-    return this.settings.update(dto);
+    return this.settings.update(dto as any);
   }
 }

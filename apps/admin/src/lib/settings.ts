@@ -8,6 +8,8 @@ export interface ShopSettings {
   duplexDiscountPct: number;
   defaultPaperSize: 'A4' | 'A3' | 'LETTER' | 'LEGAL';
   acceptingJobs: boolean;
+  publicUrl?: string;
+  cloudflareToken?: string;
 }
 
 export class SettingsService {
@@ -21,11 +23,7 @@ export class SettingsService {
   }
 
   static async updateSettings(patch: Partial<ShopSettings>): Promise<ShopSettings> {
-    try {
-      const data = await api.post<ShopSettings>('/settings', patch);
-      return data;
-    } catch (error) {
-      throw new Error('Failed to update settings');
-    }
+    const data = await api.put<ShopSettings>('/settings', patch);
+    return data;
   }
 }

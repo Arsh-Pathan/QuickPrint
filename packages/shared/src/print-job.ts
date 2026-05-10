@@ -18,5 +18,6 @@ export const createPrintJobSchema = z.object({
   fileSize: z.number().int().positive(),
   mimeType: z.string().min(1),
   settings: printSettingsSchema,
+  printerId: z.string().optional(),
 });
 export type CreatePrintJobDto = z.infer<typeof createPrintJobSchema>;
