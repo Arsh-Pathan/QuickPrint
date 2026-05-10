@@ -1,4 +1,6 @@
 FROM node:20-alpine AS builder
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+RUN npm install -g npm@11.14.1
 
 WORKDIR /app
 COPY package*.json ./

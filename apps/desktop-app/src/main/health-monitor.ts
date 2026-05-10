@@ -65,20 +65,8 @@ export class HealthMonitor {
   }
 
   private async read(printer: DiscoveredPrinter): Promise<PrinterHealthSnapshot> {
-    // Dummy/mock printers: check for a local override file first, then default to online
+    // Dummy/mock printers aren't real Windows devices — always report online
     if (printer.id.startsWith('dummy-') || printer.id.startsWith('mock-')) {
-      try {
-        const fs = await import('node:fs/promises');
-        const path = await import('node:path');
-        const overridePath = path.join(process.cwd(), 'dummy_status.txt');
-        const content = await fs.readFile(overridePath, 'utf8');
-        const status = content.trim().toLowerCase() as PrinterStatus;
-        if (mapStatus(status) !== 'error' || status === 'error') {
-          return { printerId: printer.id, status: status as PrinterStatus };
-        }
-      } catch (e) {
-        // file not found or invalid, fall back to online
-      }
       return { printerId: printer.id, status: 'online' };
     }
     if (process.platform !== 'win32') {

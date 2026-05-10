@@ -1,16 +1,20 @@
 {
-  "name": "@quickprint/print-agent",
+  "name": "@quickprint/desktop-app",
   "version": "0.1.0",
   "private": true,
-  "description": "QuickPrint Desktop Hardware Agent",
+  "description": "QuickPrint Desktop Hardware & Admin Shell",
   "author": "QuickPrint Team",
-  "main": "dist/apps/print-agent/src/main/index.js",
+  "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build && electron .",
-    "build": "tsc -p tsconfig.json && xcopy /Y /I src\\renderer\\index.html dist\\apps\\print-agent\\src\\renderer\\",
+    "build:main": "npx esbuild src/main/index.ts --bundle --platform=node --target=node20 --external:electron --external:better-sqlite3 --external:pdf-to-printer --outfile=dist/main.js",
+    "build:preload": "npx esbuild src/preload/index.ts --bundle --platform=node --target=node20 --external:electron --outfile=dist/preload.js",
+    "build": "npm run build:main && npm run build:preload && tsc -p tsconfig.json --emitDeclarationOnly",
     "start": "electron .",
     "package": "electron-builder",
     "package:win": "electron-builder --win --x64",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "npm run rebuild",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,23 +34,5 @@
     "electron": "33.0.1",
     "electron-builder": "^25.1.7",
     "typescript": "^5.6.3"
-  },
-  "build": {
-    "appId": "com.quickprint.agent",
-    "productName": "QuickPrint Agent",
-    "files": [
-      "dist/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": ["nsis"],
-      "publisherName": "QuickPrint"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
-    }
   }
 }

@@ -43,7 +43,11 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const a=JSON.parse\\(d\\);console.log\\(a.length,'rows'\\);a.slice\\(0,3\\).forEach\\(j=>console.log\\('  ',j.fileName.slice\\(0,40\\),j.status,j.priceTotalPaise\\)\\)}\\)\")",
       "Bash(curl -s http://localhost:3001/login)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/)",
-      "Bash(curl -s -o /dev/null -w \"admin /login: %{http_code}\\\\n\" http://localhost:3001/login)"
+      "Bash(curl -s -o /dev/null -w \"admin /login: %{http_code}\\\\n\" http://localhost:3001/login)",
+      "Bash(xargs -I {} dirname {})",
+      "Bash(grep -rn \"^[[:space:]]*//.*\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist .)",
+      "Bash(npm.cmd --workspace apps/backend run typecheck)",
+      "Bash(npm.cmd --workspace apps/admin run typecheck)"
     ]
   }
 }

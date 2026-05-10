@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 WORKDIR /app
 # Prisma requires openssl on Alpine
 RUN apk add --no-cache openssl
+# Update npm and suppress update notifications in logs
+RUN npm install -g npm@11.14.1
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 FROM base AS deps
 COPY package*.json ./

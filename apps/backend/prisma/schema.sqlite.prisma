@@ -1,0 +1,205 @@
+// QuickPrint database schema (SQLite version for local standalone delivery).
+// matches schema.prisma but adapted for SQLite limitations (no native Enums).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String?  @unique
+  name      String?
+  role      String   @default("STUDENT") // UserRole enum -> String
+  shopId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  printJobs     PrintJob[]
+  payments      Payment[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@index([shopId])
+}
+
+model Shop {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+
+  printers Printer[]
+}
+
+model Printer {
+  id            String        @id @default(cuid())
+  shopId        String
+  name          String
+  driver        String?
+  supportsColor Boolean       @default(false)
+  supportsDuplex Boolean      @default(false)
+  status        String        @default("OFFLINE") // PrinterStatus enum -> String
+  lastSeenAt    DateTime?
+  createdAt     DateTime      @default(now())
+
+  shop      Shop                    @relation(fields: [shopId], references: [id])
+  health    PrinterHealthSnapshot[]
+  printJobs PrintJob[]
+
+  @@index([shopId])
+  @@index([status])
+}
+
+model PrinterHealthSnapshot {
+  id          String        @id @default(cuid())
+  printerId   String
+  status      String        // PrinterStatus enum -> String
+  paperLevel  Int?
+  tonerLevel  Int?
+  message     String?
+  capturedAt  DateTime      @default(now())
+
+  printer Printer @relation(fields: [printerId], references: [id], onDelete: Cascade)
+
+  @@index([printerId, capturedAt])
+}
+
+model PrintJob {
+  id            String         @id @default(cuid())
+  ownerId       String
+  shopId        String?
+  printerId     String?
+  fileKey       String
+  fileName      String
+  fileSize      Int
+  mimeType      String
+  fileHash      String?
+  pages         Int            @default(0)
+  colorPages    Int            @default(0)
+  // settings
+  color         Boolean        @default(false)
+  duplex        Boolean        @default(false)
+  copies        Int            @default(1)
+  paperSize     String         @default("A4") // PaperSize enum -> String
+  pageRange     String?
+  // money + status
+  priceTotalPaise Int          @default(0)
+  priceBreakdown String?       // Json -> String (SQLite handles it via Prisma)
+  status        String         @default("CREATED") // PrintJobStatus enum -> String
+  failureReason String?
+  retryCount    Int            @default(0)
+  priority      Int            @default(0)
+  createdAt     DateTime       @default(now())
+  paidAt        DateTime?
+  printedAt     DateTime?
+  updatedAt     DateTime       @updatedAt
+
+  owner    User          @relation(fields: [ownerId], references: [id])
+  printer  Printer?      @relation(fields: [printerId], references: [id])
+  payment  Payment?
+  queueEntry QueueEntry?
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([shopId, status])
+  @@index([createdAt])
+}
+
+model Payment {
+  id                 String        @id @default(cuid())
+  jobId              String        @unique
+  userId             String
+  razorpayOrderId    String        @unique
+  razorpayPaymentId  String?       @unique
+  razorpaySignature  String?
+  amountPaise        Int
+  currency           String        @default("INR")
+  status             String        @default("CREATED") // PaymentStatus enum -> String
+  rawWebhookPayload  String?       // Json -> String
+  createdAt          DateTime      @default(now())
+  capturedAt         DateTime?
+
+  job  PrintJob @relation(fields: [jobId], references: [id])
+  user User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model QueueEntry {
+  id        String   @id @default(cuid())
+  jobId     String   @unique
+  shopId    String
+  position  Int
+  priority  Int      @default(0)
+  etaSeconds Int?
+  createdAt DateTime @default(now())
+
+  job PrintJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, position])
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  userId      String?
+  channel     String              // NotificationChannel enum -> String
+  target      String
+  template    String
+  payload     String              // Json -> String
+  deliveredAt DateTime?
+  failedAt    DateTime?
+  error       String?
+  createdAt   DateTime            @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([deliveredAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  before     String?  // Json -> String
+  after      String?  // Json -> String
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     String   // Json -> String
+  updatedAt DateTime @updatedAt
+}
+
+model SystemEvent {
+  id         String   @id @default(cuid())
+  shopId     String?
+  printerId  String?
+  jobId      String?
+  type       String
+  severity   String   @default("info")
+  message    String
+  metadata   String?  // Json -> String
+  createdAt  DateTime @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([type])
+}
