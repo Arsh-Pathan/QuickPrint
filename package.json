@@ -45,6 +45,7 @@
     "files": [
       "cloudflared.exe",
       "apps/desktop-app/dist/**/*",
+      "apps/desktop-app/bin/**/*",
       "apps/backend/dist/**/*",
       "apps/backend/prisma/**/*",
       "apps/admin/.next/**/*",

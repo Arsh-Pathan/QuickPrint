@@ -220,20 +220,32 @@ export class Launcher {
 
   private spawnTunnel(token: string) {
     try {
-      // Priority 1: Bundled bin in apps/desktop-app/bin (Best for Zero-Setup)
-      // rootDir is already app.asar.unpacked in production.
-      const bundledPath = path.join(this.rootDir, 'apps/desktop-app/bin/cloudflared.exe');
-      
-      // Priority 2: In Dev mode root
-      const devPath = path.join(this.rootDir, 'cloudflared.exe');
+      // Hunt for the binary in potential unpacked locations
+      const possiblePaths = [
+        path.join(this.rootDir, 'apps/desktop-app/bin/cloudflared.exe'),
+        path.join(process.resourcesPath, 'app.asar.unpacked/apps/desktop-app/bin/cloudflared.exe'),
+        path.join(app.getAppPath().replace('app.asar', 'app.asar.unpacked'), 'apps/desktop-app/bin/cloudflared.exe')
+      ];
 
-      // Priority 3: Fallback to the npm package if installed
-      let packagePath = null;
-      try { packagePath = require('cloudflared').bin; } catch {}
+      let cloudflaredPath = null;
+      for (const p of possiblePaths) {
+        log.info(`Launcher: Checking for tunnel engine at: ${p}`);
+        if (fs.existsSync(p)) {
+          cloudflaredPath = p;
+          break;
+        }
+      }
 
-      const cloudflaredPath = fs.existsSync(bundledPath) ? bundledPath 
-                            : fs.existsSync(devPath) ? devPath
-                            : packagePath || 'cloudflared';
+      // Final fallback to dev path if still not found (only for non-packaged dev mode)
+      if (!cloudflaredPath) {
+        const devPath = path.join(app.getAppPath(), 'apps/desktop-app/bin/cloudflared.exe');
+        if (fs.existsSync(devPath)) cloudflaredPath = devPath;
+      }
+
+      if (!cloudflaredPath) {
+        log.error('Launcher: FAILED TO FIND TUNNEL ENGINE IN ANY UNPACKED LOCATION');
+        cloudflaredPath = 'cloudflared'; // System path fallback
+      }
       
       log.info(`Launcher: Spawning tunnel using engine at ${cloudflaredPath}`);
       
@@ -251,12 +263,17 @@ export class Launcher {
       proc.stdout?.on('data', (data) => log.info(`[tunnel] ${data.toString().trim()}`));
       proc.stderr?.on('data', (data) => log.warn(`[tunnel] ${data.toString().trim()}`));
 
+      proc.on('error', (err) => {
+        log.error(`Launcher: Tunnel process error (check if binary exists): ${err.message}`);
+        this.processes.delete('tunnel');
+      });
+
       proc.on('close', (code) => {
         log.warn(`Launcher: Tunnel process exited with code ${code}`);
         this.processes.delete('tunnel');
       });
     } catch (err: any) {
-      log.error('Launcher: Failed to start tunnel using cloudflared package', err.message);
+      log.error('Launcher: Fatal error in spawnTunnel:', err.message);
     }
   }
 

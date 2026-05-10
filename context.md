@@ -16,9 +16,10 @@ QuickPrint was originally a multi-tenant cloud app. We have pivoted it to a **lo
 
 ### A. Static Student Access (Tunnels)
 - **Problem:** Students need a link that never changes, even if the shop PC restarts.
-- **Solution:** Integrated Cloudflare Tunnels (via `cloudflared.exe`).
-- **Automation:** The Desktop app polls the database every 30 seconds for a `cloudflareToken`. If found, it starts the tunnel engine.
-- **Packaging:** The `cloudflared.exe` is bundled in `apps/desktop-app/bin/` and included in the `.exe` installer.
+- **Binary Bundling:** `cloudflared.exe` is now bundled directly in `apps/desktop-app/bin/`.
+- **Auto-Launch:** The `Launcher` class in the desktop app polls the database every 30 seconds for a `cloudflareToken`. When found, it automatically spawns the tunnel process in the background.
+- **Crash Protection:** Added an error listener to the tunnel spawn logic to prevent "ENOENT" JavaScript errors from crashing the main process if the binary is missing or blocked.
+- **Path Priority:** The launcher prioritizes the bundled binary (`app.asar.unpacked/apps/desktop-app/bin/cloudflared.exe`) over system PATH.
 
 ### B. Targeted Printing (QR Codes)
 - **Logic:** Each printer in the Admin Dashboard has a unique "Tray QR". 
