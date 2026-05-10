@@ -13,6 +13,8 @@ QuickPrint is a monorepo for a campus print workflow with four main parts:
 - [Local Setup](docs/LOCAL_SETUP.md)
 - [Testing Guide](docs/TESTING_GUIDE.md)
 - [Audit Fixes - May 9, 2026](docs/AUDIT_FIXES_2026-05-09.md)
+- [Mock / Dead / Placeholder Code Audit](docs/MOCK_DEAD_CODE_AUDIT.md)
+- [Critical Fixes & Production Scenarios (2026-05-10)](docs/CRITICAL_FIXES_AND_SCENARIOS.md)
 - [What's Left](docs/WHATS_LEFT.md)
 
 ## Quick Commands

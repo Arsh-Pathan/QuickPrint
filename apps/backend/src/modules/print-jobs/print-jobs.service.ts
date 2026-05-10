@@ -9,6 +9,12 @@ import type { CreatePrintJobDto } from '@quickprint/shared';
 @Injectable()
 export class PrintJobsService {
   private readonly logger = new Logger(PrintJobsService.name);
+  /**
+   * Single-shop deployment fallback. QuickPrint is one instance per shop;
+   * SHOP_ID identifies which one. Required in production via env validation
+   * elsewhere; falls back to the dev shop locally so tests still work.
+   */
+  private readonly defaultShopId = process.env.SHOP_ID ?? 'shop_local_dev';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -141,7 +147,7 @@ export class PrintJobsService {
       where: { id: jobId },
       data: { status: 'QUEUED', paidAt: new Date() },
     });
-    const shopId = job.shopId ?? 'shop_local_dev';
+    const shopId = job.shopId ?? this.defaultShopId;
     await this.queue.enqueue(job.id, shopId, job.priority);
     this.realtime.emitJobStatus(job.id, 'queued');
 

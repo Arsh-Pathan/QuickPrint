@@ -13,8 +13,7 @@ import {
 import { StatCard } from '@/components/stat-card';
 import { api, type AdminStats, type PrintJob, type PrinterRow } from '@/lib/api';
 import { rupees, relativeTime } from '@/lib/format';
-
-const SHOP_ID = 'shop_local_dev';
+import { SHOP_ID } from '@/lib/config';
 
 export default function OverviewPage() {
   const stats = useQuery({

@@ -12,6 +12,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
+    "issue-agent-token": "ts-node scripts/issue-agent-token.ts",
     "test": "jest"
   },
   "dependencies": {

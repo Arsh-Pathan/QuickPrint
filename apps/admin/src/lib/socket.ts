@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './auth';
+import { SHOP_ID } from './config';
 
 const NAMESPACE = '/realtime';
-const SHOP_ID = 'shop_local_dev';
 
 let singleton: Socket | null = null;
 

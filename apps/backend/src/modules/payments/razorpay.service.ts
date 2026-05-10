@@ -17,11 +17,24 @@ export class RazorpayService {
   private readonly keyId: string;
   private readonly keySecret: string;
   private readonly webhookSecret: string;
+  private readonly isProd: boolean;
 
   constructor(cfg: ConfigService) {
     this.keyId = cfg.get<string>('RAZORPAY_KEY_ID') ?? '';
     this.keySecret = cfg.get<string>('RAZORPAY_KEY_SECRET') ?? '';
     this.webhookSecret = cfg.get<string>('RAZORPAY_WEBHOOK_SECRET') ?? '';
+    this.isProd = (cfg.get<string>('NODE_ENV') ?? process.env.NODE_ENV) === 'production';
+
+    if (this.isProd) {
+      if (!this.keyId || !this.keySecret) {
+        throw new Error(
+          'RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in production',
+        );
+      }
+      if (!this.webhookSecret) {
+        throw new Error('RAZORPAY_WEBHOOK_SECRET must be set in production');
+      }
+    }
 
     if (this.keyId && this.keySecret) {
       this.rzp = new Razorpay({
@@ -33,7 +46,10 @@ export class RazorpayService {
 
   async createOrder(amountPaise: number, receipt: string): Promise<CreatedOrder> {
     if (!this.rzp) {
-      this.logger.warn('Razorpay keys missing; returning mock order');
+      if (this.isProd) {
+        throw new Error('razorpay_not_configured');
+      }
+      this.logger.warn('Razorpay keys missing; returning mock order (DEV ONLY)');
       return {
         orderId: `mock_${receipt}_${Date.now()}`,
         amountPaise,
@@ -63,7 +79,11 @@ export class RazorpayService {
   }
 
   verifyClientSignature(orderId: string, paymentId: string, signature: string): boolean {
-    if (!this.keySecret) return true; // dev mode
+    if (!this.keySecret) {
+      if (this.isProd) return false;
+      this.logger.warn('verifyClientSignature: keySecret missing (DEV ONLY pass-through)');
+      return true;
+    }
     const expected = createHmac('sha256', this.keySecret)
       .update(`${orderId}|${paymentId}`)
       .digest('hex');
@@ -71,7 +91,11 @@ export class RazorpayService {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
-    if (!this.webhookSecret) return true; // dev mode
+    if (!this.webhookSecret) {
+      if (this.isProd) return false;
+      this.logger.warn('verifyWebhookSignature: webhookSecret missing (DEV ONLY pass-through)');
+      return true;
+    }
     const expected = createHmac('sha256', this.webhookSecret).update(rawBody).digest('hex');
     return safeEqualHex(expected, signature);
   }

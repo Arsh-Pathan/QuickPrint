@@ -4,8 +4,7 @@ import { X, RotateCcw, Inbox, Loader2 } from 'lucide-react';
 import { api, type QueueItem } from '@/lib/api';
 import { useSocketStatus } from '@/lib/socket';
 import { rupees, formatEta } from '@/lib/format';
-
-const SHOP_ID = 'shop_local_dev';
+import { SHOP_ID } from '@/lib/config';
 
 export default function QueuePage() {
   const status = useSocketStatus();

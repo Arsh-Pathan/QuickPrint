@@ -9,6 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   WS_NAMESPACE,
   type AgentAssignedJobPayload,
@@ -29,6 +30,8 @@ interface AgentSocketAuth {
 export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server!: Server;
   private readonly logger = new Logger(RealtimeGateway.name);
+  private readonly agentSecret = process.env.AGENT_TOKEN_SECRET ?? '';
+  private readonly isProd = process.env.NODE_ENV === 'production';
 
   /**
    * Lookup of agent sockets keyed by shopId. The job-assignment emitter
@@ -38,14 +41,51 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   handleConnection(client: Socket) {
     const auth = (client.handshake.auth ?? {}) as AgentSocketAuth;
-    if (auth.role === 'AGENT' && auth.shopId) {
-      // TODO: validate auth.token against AGENT_TOKEN_SECRET
+    if (auth.role === 'AGENT') {
+      if (!auth.shopId || !auth.token) {
+        this.logger.warn(`agent connect rejected: missing shopId/token sock=${client.id}`);
+        client.disconnect(true);
+        return;
+      }
+      if (!this.verifyAgentToken(auth.shopId, auth.token)) {
+        this.logger.warn(
+          `agent connect rejected: invalid token shop=${auth.shopId} sock=${client.id}`,
+        );
+        client.disconnect(true);
+        return;
+      }
       const set = this.agentSockets.get(auth.shopId) ?? new Set<string>();
       set.add(client.id);
       this.agentSockets.set(auth.shopId, set);
       this.logger.log(`agent connected shop=${auth.shopId} sock=${client.id}`);
     } else {
       this.logger.log(`socket connected ${client.id}`);
+    }
+  }
+
+  /**
+   * Verifies an agent's HMAC token. Token format: hex(HMAC-SHA256(shopId, AGENT_TOKEN_SECRET)).
+   * In production, AGENT_TOKEN_SECRET must be configured or all agent connections are rejected.
+   * In development, missing secret falls back to permissive mode (with a warning) so local dev
+   * doesn't require key provisioning.
+   */
+  private verifyAgentToken(shopId: string, token: string): boolean {
+    if (!this.agentSecret) {
+      if (this.isProd) {
+        this.logger.error('AGENT_TOKEN_SECRET not configured in production — rejecting agent');
+        return false;
+      }
+      this.logger.warn('AGENT_TOKEN_SECRET not configured — accepting agent in dev mode only');
+      return true;
+    }
+    const expected = createHmac('sha256', this.agentSecret).update(shopId).digest('hex');
+    try {
+      const a = Buffer.from(expected, 'hex');
+      const b = Buffer.from(token, 'hex');
+      if (a.length !== b.length) return false;
+      return timingSafeEqual(a, b);
+    } catch {
+      return false;
     }
   }
 

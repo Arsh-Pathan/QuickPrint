@@ -2,6 +2,8 @@
 
 This file lists the main work still remaining in the QuickPrint repository based on the current codebase.
 
+> **Update 2026-05-10:** Critical production-readiness fixes have landed. See [`CRITICAL_FIXES_AND_SCENARIOS.md`](./CRITICAL_FIXES_AND_SCENARIOS.md) for what was fixed (agent auth, Razorpay mock removal, webhook handlers, dummy-printer default, single-shop config). Items #3, #4 below are now resolved; the remaining items below are still open.
+
 ## 1. Live End-to-End Validation
 
 These are not fully proved by the current automated checks:
@@ -25,23 +27,19 @@ What remains:
 - settings persistence for pricing and shop defaults
 - agent provisioning and operational controls UI
 
-## 3. Agent Authentication Hardening
+## 3. Agent Authentication Hardening — DONE (2026-05-10)
 
-The realtime gateway still contains a TODO around agent token validation.
+Implemented in `apps/backend/src/modules/realtime/realtime.gateway.ts`. Agent sockets now verify `auth.token` as `HMAC-SHA256(shopId, AGENT_TOKEN_SECRET)`. Tokens are issued via `npm.cmd --workspace apps/backend run issue-agent-token <shopId>`. Fail-closed in production; permissive (with warning) in dev.
 
-Current gap:
+## 4. Payment Webhook Handling Expansion — DONE (2026-05-10)
 
-- agent socket connections are grouped by `shopId`, but the gateway comment still notes that `auth.token` should be validated against `AGENT_TOKEN_SECRET`
+Implemented in `apps/backend/src/modules/payments/payments.service.ts`:
 
-## 4. Payment Webhook Handling Expansion
+- `payment.captured` — authoritative confirm (handles closed-tab payments)
+- `payment.failed` — marks payment failed, leaves job retryable
+- `refund.created` / `refund.processed` — refunds payment, cancels job + queue entry
 
-`apps/backend/src/modules/payments/payments.service.ts` still contains a TODO around additional webhook event handling.
-
-What remains:
-
-- explicit handling for `payment.captured`
-- explicit handling for `payment.failed`
-- refund-related event handling
+All idempotent on payment id and current status.
 
 ## 5. OTP Provider Integrations
 
@@ -60,9 +58,12 @@ What remains:
 Good next improvements:
 
 - stronger runtime monitoring and error dashboards
-- documented deployment playbooks for production
+- documented deployment playbooks for production (deployment checklist now in `CRITICAL_FIXES_AND_SCENARIOS.md` §3)
 - explicit seeded admin and shop bootstrap flow
 - better reconciliation between printers discovered by the agent and printers stored in the backend
+- agent reconnect backlog — `GET /api/agent/pending-jobs` so a reconnecting agent picks up jobs assigned during downtime (audit scenario S9)
+- S3 file size — `storage.service.ts` `statLocal()` returns 0 for S3; needs `HeadObject`
+- single-host bundle + first-run setup wizard (Cloudflare tunnel) — see `CRITICAL_FIXES_AND_SCENARIOS.md` §4
 
 ## 7. Test Coverage Growth
 

@@ -22,7 +22,10 @@ RUN npm --workspace apps/backend run build
 RUN cp node_modules/.prisma/client/libquery_engine-*.so.node apps/backend/dist/ 2>/dev/null || true
 
 FROM base AS runtime
-ENV NODE_ENV=production
+# NODE_ENV is intentionally NOT hardcoded here. It comes from the env_file
+# (apps/backend/.env) or compose `environment:` so the image can be used for
+# local development without forcing production env validation. Production
+# deploys must set NODE_ENV=production explicitly.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/backend/dist ./dist
 # We copy the engine to /app since Prisma searches there at runtime
@@ -31,4 +34,4 @@ COPY --from=build /app/apps/backend/prisma ./prisma
 COPY apps/backend/package.json ./
 EXPOSE 4000
 # Sync schema then start
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && exec node dist/main.js"]

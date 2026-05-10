@@ -292,9 +292,14 @@ Currently implemented:
 - signed upload and download URLs
 - SHA-256 file hashing on backend
 - SHA-256 verification in the print agent after download
-- webhook signature verification for Razorpay
+- webhook signature verification for Razorpay (rejects in production when secret is unset, dev pass-through preserved with warning)
 - request validation with `class-validator`
 - throttling with NestJS throttler
+- agent WebSocket authentication via HMAC-SHA256 token (`HMAC(shopId, AGENT_TOKEN_SECRET)`); fail-closed in production
+- Razorpay webhook handlers for `payment.captured`, `payment.failed`, `refund.created`, `refund.processed`, all idempotent
+- production env validation at backend boot (`assertProdEnv`) — refuses to start with missing or placeholder secrets
+
+See [`docs/CRITICAL_FIXES_AND_SCENARIOS.md`](docs/CRITICAL_FIXES_AND_SCENARIOS.md) for the threat scenarios these mitigations cover.
 
 ## 12. Deployment and Runtime
 
@@ -319,3 +324,4 @@ Local defaults:
 - `colorPages` is computed as metadata, not mixed per-page billing
 - analytics and settings pages in admin are not feature-complete yet
 - there is schema support for notifications and audit/system events, but no standalone notification module is active in the current backend app module
+- **single-shop deployment**: one backend / admin / agent instance per shop. `SHOP_ID` (backend), `NEXT_PUBLIC_SHOP_ID` (admin build), and `AGENT_SHOP_ID` (agent) must all match. Future single-host bundle with first-run setup wizard and Cloudflare tunnel is captured in [`docs/CRITICAL_FIXES_AND_SCENARIOS.md`](docs/CRITICAL_FIXES_AND_SCENARIOS.md) §4.

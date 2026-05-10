@@ -224,3 +224,8 @@ Workspace-specific scripts:
 - PDF analysis now computes `colorPages` as metadata for analytics and downstream use
 - agent download integrity verification is implemented through `fileHash`
 - guest login now includes cleanup of stale anonymous users older than 24 hours
+- single-shop deployment model: `SHOP_ID` env (backend) must match `NEXT_PUBLIC_SHOP_ID` (admin build) and `AGENT_SHOP_ID` (agent)
+- agent socket auth uses `HMAC-SHA256(shopId, AGENT_TOKEN_SECRET)`; tokens issued via `npm.cmd --workspace apps/backend run issue-agent-token <shopId>`
+- Razorpay webhooks handle `payment.captured`, `payment.failed`, `refund.*` — see `apps/backend/src/modules/payments/payments.service.ts`
+- production builds: backend `assertProdEnv()` at boot rejects missing/placeholder secrets; agent rejects `AGENT_DUMMY_PRINTER=true`
+- recent changes: see [`docs/CRITICAL_FIXES_AND_SCENARIOS.md`](./CRITICAL_FIXES_AND_SCENARIOS.md) (2026-05-10)

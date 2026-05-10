@@ -11,8 +11,7 @@ import {
 } from 'lucide-react';
 import { api, type PrinterRow } from '@/lib/api';
 import { relativeTime } from '@/lib/format';
-
-const SHOP_ID = 'shop_local_dev';
+import { SHOP_ID } from '@/lib/config';
 
 export default function PrintersPage() {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
