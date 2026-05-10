@@ -19,7 +19,9 @@ export class PrinterDiscovery {
   async list(): Promise<DiscoveredPrinter[]> {
     try {
       const mod = await import('pdf-to-printer');
-      const raw = await mod.getPrinters();
+      const getPrinters = mod.getPrinters ?? mod.default?.getPrinters;
+      if (!getPrinters) throw new Error('getPrinters export not found on pdf-to-printer module');
+      const raw = await getPrinters();
       const printers: DiscoveredPrinter[] = raw.map((p, i) => ({
         id: p.deviceId ?? `printer_${i}`,
         name: p.name,

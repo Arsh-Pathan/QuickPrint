@@ -4,7 +4,6 @@ import { exec } from 'node:child_process';
 import log from 'electron-log';
 import { startAgent, stopAgent } from './agent';
 import { Launcher } from './launcher';
-
 log.initialize();
 log.transports.file.level = 'info';
 log.info('QuickPrint Agent starting');

@@ -57,6 +57,7 @@ export class PrintersService {
             where: { id: pid },
             data: {
               name: pname,
+              shopId, // Ensure printer is assigned to the current shop
               // Only update status if provided, otherwise keep current
               ...(p.status ? { status: String(p.status).toUpperCase() as any } : {}),
               lastSeenAt: now,

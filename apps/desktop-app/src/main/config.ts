@@ -25,13 +25,16 @@ function required(name: string): string {
   return v ?? '';
 }
 
+import crypto from 'node:crypto';
+
 const shopId = isProd
   ? required('AGENT_SHOP_ID')
   : process.env.AGENT_SHOP_ID ?? 'shop_local_dev';
 
 const agentToken = isProd
   ? required('AGENT_TOKEN')
-  : process.env.AGENT_TOKEN ?? 'dev-token';
+  : process.env.AGENT_TOKEN ?? crypto.createHmac('sha256', 'quickprint-local-agent-secret-stable-2026').update(shopId).digest('hex');
+
 
 // Dummy printer is opt-in. Production builds refuse to enable it even if the
 // flag is set, so a leaked env var can never silently simulate prints.

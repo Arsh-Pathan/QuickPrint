@@ -170,7 +170,10 @@ export class QueueProcessor {
     }
 
     const mod = await import('pdf-to-printer');
-    await mod.print(filePath, {
+    const print = mod.print ?? mod.default?.print;
+    if (!print) throw new Error('print export not found on pdf-to-printer module');
+
+    await print(filePath, {
       printer: printer.name,
       copies: job.copies,
       monochrome: !job.color,

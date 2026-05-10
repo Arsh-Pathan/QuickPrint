@@ -39,6 +39,12 @@ export class BackendSocket {
     this.socket.on('connect', () => {
       log.info('backend-socket: connected');
       this.socket?.emit('subscribe:shop', this.opts.shopId);
+      // Sync printers immediately on connect, don't wait 15s
+      this.socket?.emit('agent:heartbeat', {
+        agentId: this.opts.shopId,
+        shopId: this.opts.shopId,
+        printers: this.opts.printers,
+      });
     });
     this.socket.on('disconnect', (reason) => {
       log.warn(`backend-socket: disconnected (${reason})`);
