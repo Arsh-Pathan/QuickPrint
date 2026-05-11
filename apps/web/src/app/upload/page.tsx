@@ -100,6 +100,18 @@ export default function UploadPage() {
         name: 'QuickPrint',
         description: `Printing ${file.name}`,
         order_id: order.orderId,
+        // Top-level `method` is the official UPI-only switch documented by
+        // Razorpay. Combined with the display block below it forces UPI
+        // (collect / intent / QR depending on platform) without showing
+        // cards, wallets, netbanking, EMI or paylater.
+        method: {
+          upi: true,
+          card: false,
+          netbanking: false,
+          wallet: false,
+          emi: false,
+          paylater: false,
+        },
         handler: async (response: any) => {
           try {
             await api.confirmPayment({
@@ -122,18 +134,24 @@ export default function UploadPage() {
         prefill: {
           contact: user?.phone ?? undefined,
           name: user?.name ?? undefined,
+          // In Razorpay test mode UPI is only simulated via this VPA on
+          // desktop — without it Checkout has nothing to render and shows
+          // "No appropriate payment method found." Real keys ignore this.
+          vpa: order.keyId.startsWith('rzp_test_') ? 'success@razorpay' : undefined,
         },
         theme: { color: '#1a73e8' },
+        // Razorpay's canonical UPI-only sample. `show_default_blocks: false`
+        // hides every method that isn't in the listed block.
         config: {
           display: {
             blocks: {
-              upi: {
+              banks: {
                 name: 'Pay via UPI',
                 instruments: [{ method: 'upi' }],
               },
             },
-            sequence: ['block.upi'],
-            preferences: { show_default_blocks: true },
+            sequence: ['block.banks'],
+            preferences: { show_default_blocks: false },
           },
         },
       };

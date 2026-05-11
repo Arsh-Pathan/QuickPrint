@@ -38,9 +38,10 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const prefs = usePrefs();
   const toast = useToast();
   const [jobName, setJobName] = useState<string>('');
+  const [initialStatus, setInitialStatus] = useState<PrintJobStatus>('created');
 
   // Live socket state — drives everything below.
-  const live = useJobSocket(id, { status: 'created' }, (next, prev) => {
+  const live = useJobSocket(id, { status: initialStatus }, (next, prev) => {
     if (prev.status === next.status) return;
     const friendly = STATUS_TEXT[next.status];
     toast.push(friendly.toast, friendly.variant);
@@ -59,6 +60,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
     api.getJob(id).then((j: any) => {
       if (cancelled) return;
       setJobName(j.fileName);
+      if (j.status) setInitialStatus(j.status as PrintJobStatus);
     });
     api.queuePosition(id).then((q) => {
       if (cancelled || !q) return;

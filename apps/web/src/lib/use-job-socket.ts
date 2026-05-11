@@ -47,6 +47,13 @@ export function useJobSocket(
   changeRef.current = onChange;
 
   useEffect(() => {
+    if (initial.status === 'created' || stateRef.current.status !== 'created') return;
+    const next = { ...stateRef.current, status: initial.status };
+    stateRef.current = next;
+    setState(next);
+  }, [initial.status]);
+
+  useEffect(() => {
     const socket = getSocket();
 
     const apply = (patch: Partial<JobLiveState>) => {
