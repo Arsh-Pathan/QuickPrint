@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nest
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PrintJobsService } from './print-jobs.service';
+import { QueueService } from '../queue/queue.service';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import type { CreatePrintJobDto } from '@quickprint/shared';
@@ -11,7 +12,10 @@ import type { CreatePrintJobDto } from '@quickprint/shared';
 @Controller('print-jobs')
 @UseGuards(AuthGuard('jwt'))
 export class PrintJobsController {
-  constructor(private readonly jobs: PrintJobsService) {}
+  constructor(
+    private readonly jobs: PrintJobsService,
+    private readonly queue: QueueService,
+  ) {}
 
   @Post()
   create(@Req() req: { user: { userId: string } }, @Body() dto: CreatePrintJobDto) {
@@ -48,5 +52,15 @@ export class PrintJobsController {
   @Get(':id')
   get(@Req() req: { user: { userId: string } }, @Param('id') id: string) {
     return this.jobs.findOwned(req.user.userId, id);
+  }
+
+  /** Student-scoped queue snapshot for their own job. */
+  @Get(':id/queue-position')
+  async queuePosition(
+    @Req() req: { user: { userId: string } },
+    @Param('id') id: string,
+  ) {
+    await this.jobs.findOwned(req.user.userId, id); // ownership check
+    return this.queue.positionFor(id);
   }
 }

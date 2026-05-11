@@ -22,11 +22,16 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  anonymousLogin: (name?: string) =>
-    http<{ token: string; user: { id: string; phone: string | null; name: string | null; role: string } }>(
+  anonymousLogin: (input: { name?: string; phone?: string } | string = {}) => {
+    const body = typeof input === 'string' ? { name: input } : input;
+    return http<{ token: string; user: { id: string; phone: string | null; name: string | null; role: string } }>(
       '/auth/anonymous',
-      { method: 'POST', body: JSON.stringify({ name: name ?? '' }) },
-    ),
+      { method: 'POST', body: JSON.stringify(body) },
+    );
+  },
+  me: () => http<{ id: string; phone: string | null; name: string | null; role: string }>('/users/me'),
+  queuePosition: (jobId: string) =>
+    http<{ position: number; total: number; etaSeconds: number } | null>(`/print-jobs/${jobId}/queue-position`),
   signUpload: (body: { fileName: string; mimeType: string; fileSize: number }) =>
     http<{ uploadUrl: string; fileKey: string }>('/files/sign-upload', {
       method: 'POST',

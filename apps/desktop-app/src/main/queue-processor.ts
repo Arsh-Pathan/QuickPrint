@@ -99,6 +99,8 @@ export class QueueProcessor {
     log.info(`processor: running job ${job.id}`);
     try {
       const filePath = await this.download(job);
+      // Signal "printing now" to the student before the actual spool starts.
+      this.opts.socket.emitJobClaimed({ jobId: job.id, agentId: config.shopId });
       await this.print(filePath, job);
       this.opts.queue.complete(job.id);
       this.opts.socket.emitJobResult({ jobId: job.id, status: 'completed' });

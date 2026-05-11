@@ -27,15 +27,36 @@ export class AuthService {
     return { token, user: { id: user.id, role: user.role } };
   }
 
-  async anonymousLogin(name?: string) {
+  async anonymousLogin(name?: string, phone?: string) {
     await this.pruneAnonymousUsers().catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`anonymous cleanup skipped: ${message}`);
     });
 
-    const user = await this.prisma.user.create({
-      data: { role: 'STUDENT', name: name?.trim() || null },
-    });
+    const cleanName = name?.trim() || null;
+    const cleanPhone = phone?.trim() || null;
+
+    // If the student gave us a phone number they've used before, reuse the
+    // same user (and refresh their name if they retyped it). Lets a returning
+    // student see their job history without forcing a real account system.
+    let user = null as Awaited<ReturnType<typeof this.prisma.user.findUnique>>;
+    if (cleanPhone) {
+      user = await this.prisma.user.findUnique({ where: { phone: cleanPhone } });
+      if (user) {
+        if (cleanName && cleanName !== user.name) {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: { name: cleanName },
+          });
+        }
+      }
+    }
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: { role: 'STUDENT', name: cleanName, phone: cleanPhone },
+      });
+    }
 
     const token = await this.jwt.signAsync({ sub: user.id, role: user.role });
     return { token, user: { id: user.id, phone: user.phone, name: user.name, role: user.role } };

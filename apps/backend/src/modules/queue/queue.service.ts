@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 
 const SECONDS_PER_PAGE = 4;
 
@@ -7,7 +8,10 @@ const SECONDS_PER_PAGE = 4;
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeGateway,
+  ) {}
 
   async enqueue(jobId: string, shopId: string, priority = 0) {
     const last = await this.prisma.queueEntry.findFirst({
@@ -15,10 +19,28 @@ export class QueueService {
       orderBy: { position: 'desc' },
     });
     const position = (last?.position ?? 0) + 1;
-    return this.prisma.queueEntry.upsert({
+    const entry = await this.prisma.queueEntry.upsert({
       where: { jobId },
       create: { jobId, shopId, position, priority },
       update: { position, priority },
+    });
+    await this.broadcastPositions(shopId).catch((e) =>
+      this.logger.warn(`broadcastPositions failed shop=${shopId}: ${e.message}`),
+    );
+    return entry;
+  }
+
+  /**
+   * Push every waiting student their current queue position + ETA.
+   * Cheap (one query, O(n) emits) and lets the UI stay accurate as jobs ahead
+   * complete or get cancelled. Called after enqueue, claim, and job-result.
+   */
+  async broadcastPositions(shopId: string) {
+    const entries = await this.list(shopId);
+    const total = entries.length;
+    entries.forEach((e: any, idx: number) => {
+      const position = idx + 1; // 1-based display position
+      this.realtime.emitQueuePosition(e.jobId, position, e.etaSeconds, total);
     });
   }
 
@@ -61,5 +83,26 @@ export class QueueService {
       where: { id: jobId },
       data: { status: 'CANCELLED' },
     });
+  }
+
+  /**
+   * Position lookup for a single job. Returns null if the job is not in queue
+   * (e.g. already PRINTING/COMPLETED or never enqueued). Used by the student
+   * UI to render an initial "#3 of 7" chip before the first realtime push.
+   */
+  async positionFor(jobId: string) {
+    const entry = await this.prisma.queueEntry.findUnique({
+      where: { jobId },
+      include: { job: true },
+    });
+    if (!entry) return null;
+    const all = await this.list(entry.shopId);
+    const idx = all.findIndex((e: any) => e.jobId === jobId);
+    if (idx === -1) return null;
+    return {
+      position: idx + 1,
+      total: all.length,
+      etaSeconds: all[idx].etaSeconds,
+    };
   }
 }

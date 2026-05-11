@@ -10,6 +10,7 @@ import { WS_NAMESPACE, type PrinterStatus } from '@quickprint/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { PrintersService } from '../printers/printers.service';
+import { QueueService } from '../queue/queue.service';
 
 interface JobResultPayload {
   jobId: string;
@@ -37,7 +38,31 @@ export class AgentGateway {
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
     private readonly printers: PrintersService,
+    private readonly queue: QueueService,
   ) {}
+
+  /**
+   * Agent has picked up a job and is about to spool it. Flips status to
+   * PRINTING, pushes a live job:status update to the student, and rebroadcasts
+   * queue positions so everyone behind sees their place tick down.
+   */
+  @SubscribeMessage('agent:job-claimed')
+  async onJobClaimed(@MessageBody() p: { jobId: string; agentId: string }) {
+    const job = await this.prisma.printJob.findUnique({ where: { id: p.jobId } });
+    if (!job) return { ok: false };
+    if (job.status !== 'PRINTING') {
+      await this.prisma.printJob.update({
+        where: { id: p.jobId },
+        data: { status: 'PRINTING' },
+      });
+    }
+    this.realtime.emitJobStatus(p.jobId, 'printing');
+    const shopId = job.shopId ?? process.env.SHOP_ID ?? 'shop_local_dev';
+    await this.queue.broadcastPositions(shopId).catch((e: any) =>
+      this.logger.warn(`broadcastPositions failed: ${e.message}`),
+    );
+    return { ok: true };
+  }
 
   /**
    * Agent reports the outcome of a print attempt. Updates the job row,
@@ -60,6 +85,10 @@ export class AgentGateway {
     });
     await this.prisma.queueEntry.delete({ where: { jobId: p.jobId } }).catch(() => null);
     this.realtime.emitJobStatus(job.id, p.status === 'completed' ? 'completed' : 'failed');
+    const shopId = job.shopId ?? process.env.SHOP_ID ?? 'shop_local_dev';
+    await this.queue.broadcastPositions(shopId).catch((e: any) =>
+      this.logger.warn(`broadcastPositions failed: ${e.message}`),
+    );
     return { ok: true };
   }
 

@@ -71,6 +71,10 @@ export class BackendSocket {
     this.socket?.emit('agent:job-result', p);
   }
 
+  emitJobClaimed(p: { jobId: string; agentId: string }) {
+    this.socket?.emit('agent:job-claimed', p);
+  }
+
   emitPrinterEvent(p: PrinterHealthSnapshot) {
     this.socket?.emit('agent:printer-event', {
       printerId: p.printerId,

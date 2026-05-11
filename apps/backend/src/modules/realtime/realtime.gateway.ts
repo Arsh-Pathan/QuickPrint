@@ -115,6 +115,16 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.server.to(`job:${jobId}`).emit('job:status', { jobId, status, eta });
   }
 
+  emitQueuePosition(jobId: string, position: number, etaSeconds: number, total: number) {
+    this.server
+      .to(`job:${jobId}`)
+      .emit('queue:position', { jobId, position, etaSeconds, total });
+  }
+
+  emitJobProgress(jobId: string, pagesPrinted: number, pagesTotal: number) {
+    this.server.to(`job:${jobId}`).emit('job:progress', { jobId, pagesPrinted, pagesTotal });
+  }
+
   emitPrinterStatus(shopId: string, payload: { printerId: string; status: PrinterStatus }) {
     this.server.to(`shop:${shopId}`).emit('printer:status', payload);
   }

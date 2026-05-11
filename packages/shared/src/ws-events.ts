@@ -30,7 +30,7 @@ export interface ServerToClientEvents {
   'agent:job-assigned': (p: AgentAssignedJobPayload) => void;
   'queue:paused': (p: { shopId: string; reason: string }) => void;
   'queue:resumed': (p: { shopId: string }) => void;
-  'queue:position': (p: { jobId: string; position: number; etaSeconds: number }) => void;
+  'queue:position': (p: { jobId: string; position: number; etaSeconds: number; total: number }) => void;
 }
 
 /**

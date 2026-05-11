@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -11,24 +11,36 @@ import { useAuth } from '@/lib/store';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const setAuth = useAuth((s) => s.setAuth);
+  const { setAuth, token, user } = useAuth();
   const next = searchParams.get('next') ?? '/upload';
 
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Already signed in? Skip the form unless the URL forces re-auth.
+  useEffect(() => {
+    if (token && user) router.replace(next);
+  }, [token, user, next, router]);
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const { user, token } = await api.anonymousLogin(name);
-      // @ts-ignore
+      const cleanedPhone = phone.replace(/\s+/g, '');
+      const { user, token } = await api.anonymousLogin({
+        name: name.trim() || undefined,
+        phone: cleanedPhone || undefined,
+      });
       setAuth(user, token);
       router.push(next);
     } catch (err: any) {
-      setError(err.message || 'Failed to continue');
+      const msg = err.message?.includes('invalid_phone')
+        ? 'Please enter a valid phone number (digits only, optionally with +).'
+        : err.message || 'Failed to continue';
+      setError(msg);
       setLoading(false);
     }
   }
@@ -47,7 +59,7 @@ function LoginForm() {
           </div>
         </div>
 
-        <form onSubmit={handleContinue} className="space-y-6">
+        <form onSubmit={handleContinue} className="space-y-5">
           <div className="relative">
             <input
               type="text"
@@ -68,8 +80,28 @@ function LoginForm() {
             </label>
           </div>
 
+          <div className="relative">
+            <input
+              type="tel"
+              inputMode="tel"
+              placeholder=" "
+              className="peer google-input !rounded-lg !py-4 !px-4 !text-[16px]"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={loading}
+              maxLength={16}
+              id="phone-input"
+            />
+            <label
+              htmlFor="phone-input"
+              className="absolute left-3 top-4 px-1 text-[#5f6368] transition-all duration-200 bg-white pointer-events-none peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-brand-500 peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:text-xs"
+            >
+              Phone for WhatsApp updates (optional)
+            </label>
+          </div>
+
           <p className="text-[13px] text-[#5f6368] leading-relaxed">
-            No signup. We use your name only to label your job at the counter.
+            No signup. Name is used at the counter; phone is only for a one-tap WhatsApp link when your prints are ready.
           </p>
 
           {error && (
