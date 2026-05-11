@@ -75,7 +75,7 @@ export class StorageService {
     const expiresAt = Date.now() + expiresIn * 1000;
     const token = this.sign(fileKey, 'put', expiresAt);
     return {
-      uploadUrl: `${this.publicBase}/api/files/local-upload?key=${encodeURIComponent(fileKey)}&exp=${expiresAt}&sig=${token}`,
+      uploadUrl: `/api/files/local-upload?key=${encodeURIComponent(fileKey)}&exp=${expiresAt}&sig=${token}`,
       fileKey,
       expiresIn,
     };

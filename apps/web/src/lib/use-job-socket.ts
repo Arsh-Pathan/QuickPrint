@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { WS_NAMESPACE, type PrintJobStatus } from '@quickprint/shared';
 
-const WS = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4000';
+const WS = process.env.NEXT_PUBLIC_WS_URL ?? '';
 let shared: Socket | null = null;
 
 function getSocket() {
@@ -11,6 +11,7 @@ function getSocket() {
   const token = typeof window !== 'undefined' ? window.localStorage.getItem('qp_token') : null;
   shared = io(`${WS}${WS_NAMESPACE}`, {
     transports: ['websocket'],
+    path: '/socket.io',
     auth: token ? { token } : undefined,
   });
   return shared;
