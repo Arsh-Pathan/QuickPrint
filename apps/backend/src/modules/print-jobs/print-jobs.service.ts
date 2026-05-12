@@ -68,6 +68,29 @@ export class PrintJobsService {
     return this.normalize(job);
   }
 
+  async updateOwnedSettings(userId: string, jobId: string, settings: CreatePrintJobDto['settings']) {
+    const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('job_not_found');
+    if (job.ownerId !== userId) throw new ForbiddenException('not_owner');
+    if (job.status !== 'CREATED') throw new BadRequestException('job_settings_locked');
+
+    const breakdown = await this.pricing.quote(job.pages, job.colorPages, settings);
+    const updated = await this.prisma.printJob.update({
+      where: { id: jobId },
+      data: {
+        color: settings.color,
+        duplex: settings.duplex,
+        copies: settings.copies,
+        paperSize: settings.paperSize?.toUpperCase() as any,
+        pageRange: settings.pageRange,
+        priceTotalPaise: breakdown.totalPaise,
+        priceBreakdown: JSON.stringify(breakdown),
+      },
+    });
+
+    return this.normalize(updated);
+  }
+
   async listForUser(userId: string) {
     const jobs = await this.prisma.printJob.findMany({
       where: { ownerId: userId },
@@ -178,6 +201,38 @@ export class PrintJobsService {
       `Job ${job.id} paid → queued (shop=${shopId} agent_online=${assigned})`,
     );
     return this.normalize(job);
+  }
+
+  async assignQueuedBacklog(shopId: string) {
+    const entries = await this.prisma.queueEntry.findMany({
+      where: { shopId, job: { status: 'QUEUED' } },
+      include: { job: true },
+      orderBy: [{ priority: 'desc' }, { position: 'asc' }],
+    });
+
+    let assigned = 0;
+    for (const entry of entries) {
+      const printer = await this.pickPrinter(shopId, entry.job);
+      if (!printer) continue;
+
+      const downloadUrl = await this.files.download(entry.job.fileKey);
+      const pushed = this.realtime.assignJobToAgent(shopId, {
+        id: entry.job.id,
+        fileUrl: downloadUrl,
+        fileName: entry.job.fileName,
+        fileHash: entry.job.fileHash ?? undefined,
+        printerId: printer.id,
+        copies: entry.job.copies,
+        duplex: entry.job.duplex,
+        color: entry.job.color,
+        paperSize: entry.job.paperSize,
+        pageRange: entry.job.pageRange ?? undefined,
+      });
+      if (pushed) assigned += 1;
+    }
+
+    this.logger.log(`assignQueuedBacklog shop=${shopId} queued=${entries.length} assigned=${assigned}`);
+    return assigned;
   }
 
   /**

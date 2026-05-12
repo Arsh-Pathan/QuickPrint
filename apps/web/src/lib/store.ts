@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { PaperSize, type PaperSize as PaperSizeValue } from '@quickprint/shared';
 
 interface User {
   id: string;
@@ -48,6 +49,7 @@ interface PrefsState {
   copies: number;
   color: boolean;
   duplex: boolean;
+  paperSize: PaperSizeValue;
   notificationsAsked: boolean;
   set: (patch: Partial<Omit<PrefsState, 'set'>>) => void;
 }
@@ -58,6 +60,7 @@ export const usePrefs = create<PrefsState>()(
       copies: 1,
       color: false,
       duplex: false,
+      paperSize: PaperSize.A4,
       notificationsAsked: false,
       set: (patch) => set(patch),
     }),

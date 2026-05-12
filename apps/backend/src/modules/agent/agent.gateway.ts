@@ -12,6 +12,7 @@ import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { PrintersService } from '../printers/printers.service';
 import { QueueService } from '../queue/queue.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { PrintJobsService } from '../print-jobs/print-jobs.service';
 
 interface JobResultPayload {
   jobId: string;
@@ -41,6 +42,7 @@ export class AgentGateway {
     private readonly printers: PrintersService,
     private readonly queue: QueueService,
     private readonly audit: AuditLogService,
+    private readonly jobs: PrintJobsService,
   ) {}
 
   private assertAgent(client: Socket): string | null {
@@ -152,6 +154,13 @@ export class AgentGateway {
     if (p.shopId && p.printers) {
       await this.printers.syncFromHeartbeat(p.shopId, p.printers).catch((e) => {
         this.logger.error(`Failed to sync printers from heartbeat: ${e.message}`);
+      });
+    }
+    if (!client.data.queueBacklogSynced) {
+      client.data.queueBacklogSynced = true;
+      await this.jobs.assignQueuedBacklog(shopId).catch((e: any) => {
+        client.data.queueBacklogSynced = false;
+        this.logger.error(`Failed to sync queued backlog for ${shopId}: ${e.message}`);
       });
     }
     return { ok: true };

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PrintJobsService } from './print-jobs.service';
@@ -20,6 +20,15 @@ export class PrintJobsController {
   @Post()
   create(@Req() req: { user: { userId: string } }, @Body() dto: CreatePrintJobDto) {
     return this.jobs.create(req.user.userId, dto);
+  }
+
+  @Patch(':id/settings')
+  updateSettings(
+    @Req() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() settings: CreatePrintJobDto['settings'],
+  ) {
+    return this.jobs.updateOwnedSettings(req.user.userId, id, settings);
   }
 
   @Get()

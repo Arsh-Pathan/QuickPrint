@@ -1,4 +1,4 @@
-import type { CreatePrintJobDto } from '@quickprint/shared';
+import type { CreatePrintJobDto, PrintSettings } from '@quickprint/shared';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
@@ -65,6 +65,11 @@ export const api = {
     http<{ id: string; priceTotalPaise: number; pages: number }>('/print-jobs', {
       method: 'POST',
       body: JSON.stringify(dto),
+    }),
+  updateJobSettings: (id: string, settings: PrintSettings) =>
+    http<{ id: string; priceTotalPaise: number; pages: number }>('/print-jobs/' + id + '/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
     }),
   getJob: (id: string) => http<{ id: string; status: string }>(`/print-jobs/${id}`),
   createOrder: (jobId: string) =>

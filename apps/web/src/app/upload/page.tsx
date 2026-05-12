@@ -21,7 +21,7 @@ import { api } from '@/lib/api';
 import { useAuth, usePrefs } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { FilePreview } from '@/components/file-preview';
-import { calculatePrice } from '@quickprint/shared';
+import { calculatePrice, PaperSize, type PrintSettings } from '@quickprint/shared';
 import { loadRazorpay, preloadRazorpay } from '@/lib/razorpay';
 
 const PRICING_CONFIG = {
@@ -71,6 +71,7 @@ interface CartFile {
   jobId?: string;
   pricePaise?: number;
   pages?: number;
+  appliedSettingsKey?: string;
 }
 
 export default function UploadPage() {
@@ -81,44 +82,68 @@ export default function UploadPage() {
 
   const [cart, setCart] = useState<CartFile[]>([]);
   const [step, setStep] = useState<'choose' | 'settings'>('choose');
-  const [phase, setPhase] = useState<'idle' | 'processing' | 'paying'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'processing' | 'syncing' | 'paying'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
 
   const [copies, setCopies] = useState(prefs.copies);
   const [color, setColor] = useState(prefs.color);
   const [duplex, setDuplex] = useState(prefs.duplex);
+  const [paperSize, setPaperSize] = useState(prefs.paperSize);
+
+  const currentSettings = useMemo<PrintSettings>(
+    () => ({ color, duplex, copies, paperSize }),
+    [color, duplex, copies, paperSize],
+  );
+  const settingsKey = useMemo(() => JSON.stringify(currentSettings), [currentSettings]);
 
   useEffect(() => {
     if (!token) router.push('/login?next=/upload');
   }, [token, router]);
 
   useEffect(() => {
-    prefs.set({ copies, color, duplex });
-  }, [copies, color, duplex]);
+    prefs.set({ copies, color, duplex, paperSize });
+  }, [copies, color, duplex, paperSize]);
 
   useEffect(() => { preloadRazorpay(); }, []);
+
+  useEffect(() => {
+    if (activePreviewId && cart.some((item) => item.id === activePreviewId)) return;
+    setActivePreviewId(cart[0]?.id ?? null);
+  }, [activePreviewId, cart]);
 
   const allReady = cart.length > 0 && cart.every((f) => f.status === 'ready');
   const hasPending = cart.some((f) => f.status === 'pending' || f.status === 'uploading' || f.status === 'analyzing');
   const hasError = cart.some((f) => f.status === 'error');
+  const settingsDirty = cart.some(
+    (f) => f.status === 'ready' && !!f.jobId && f.appliedSettingsKey !== settingsKey,
+  );
+  const activePreview = cart.find((item) => item.id === activePreviewId) ?? null;
 
   const totalPaise = useMemo(
-    () => cart.reduce((sum, f) => sum + (f.pricePaise ?? 0), 0),
-    [cart],
+    () =>
+      cart.reduce((sum, item) => {
+        if (item.pages && item.appliedSettingsKey !== settingsKey) {
+          return sum + calculatePrice(item.pages, color ? item.pages : 0, currentSettings, PRICING_CONFIG).totalPaise;
+        }
+        return sum + (item.pricePaise ?? 0);
+      }, 0),
+    [cart, color, currentSettings, settingsKey],
   );
 
   const addFiles = useCallback((files: FileList | File[]) => {
-    const newFiles = Array.from(files);
+    const newFiles = Array.from(files).map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      status: 'pending' as FileStatus,
+    }));
     setCart((prev) => [
       ...prev,
-      ...newFiles.map((f) => ({
-        id: crypto.randomUUID(),
-        file: f,
-        status: 'pending' as FileStatus,
-      })),
+      ...newFiles,
     ]);
+    if (newFiles[0]) setActivePreviewId((prev) => prev ?? newFiles[0]!.id);
     if (newFiles.length > 0) setStep('settings');
   }, []);
 
@@ -129,6 +154,35 @@ export default function UploadPage() {
   const updateFile = useCallback((id: string, patch: Partial<CartFile>) => {
     setCart((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   }, []);
+
+  const syncReadyJobs = async () => {
+    const stale = cart.filter(
+      (f) => f.status === 'ready' && f.jobId && f.appliedSettingsKey !== settingsKey,
+    );
+    if (stale.length === 0) return true;
+
+    setError(null);
+    setPhase('syncing');
+    try {
+      for (const item of stale) {
+        const next = await api.updateJobSettings(item.jobId!, currentSettings);
+        updateFile(item.id, {
+          pricePaise: next.priceTotalPaise,
+          pages: next.pages,
+          appliedSettingsKey: settingsKey,
+          error: undefined,
+        });
+      }
+      return true;
+    } catch (err: any) {
+      const msg = err.message || 'Could not update print settings';
+      setError(msg);
+      toast.push(msg, 'error');
+      return false;
+    } finally {
+      setPhase('idle');
+    }
+  };
 
   const processAll = async () => {
     setError(null);
@@ -179,7 +233,7 @@ export default function UploadPage() {
             fileName: cf.file.name,
             fileSize: cf.file.size,
             mimeType: cf.file.type,
-            settings: { color, duplex, copies, paperSize: 'A4' },
+            settings: currentSettings,
           });
 
           updateFile(cf.id, {
@@ -187,6 +241,7 @@ export default function UploadPage() {
             jobId: job.id,
             pricePaise: job.priceTotalPaise,
             pages: job.pages,
+            appliedSettingsKey: settingsKey,
           });
         } catch (err: any) {
           if (err.name === 'AbortError') break;
@@ -206,9 +261,11 @@ export default function UploadPage() {
     const ready = cart.filter((f) => f.status === 'ready' && f.jobId);
     if (ready.length === 0) return;
 
-    setPhase('paying');
-
     try {
+      const synced = await syncReadyJobs();
+      if (!synced) return;
+
+      setPhase('paying');
       const [isLoaded] = await Promise.all([loadRazorpay()]);
       if (!isLoaded) throw new Error('Razorpay SDK failed to load');
 
@@ -370,13 +427,42 @@ export default function UploadPage() {
                   <CartItem
                     key={cf.id}
                     item={cf}
+                    selected={cf.id === activePreviewId}
+                    onSelect={() => setActivePreviewId(cf.id)}
                     onRemove={phase === 'idle' ? () => removeFile(cf.id) : undefined}
                     copies={copies}
                     color={color}
                     duplex={duplex}
+                    paperSize={paperSize}
+                    settingsKey={settingsKey}
                   />
                 ))}
               </div>
+
+              {activePreview && (
+                <div className="google-card overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-[#dadce0] px-5 py-4">
+                    <div>
+                      <h3 className="text-[15px] font-medium text-[#202124]">Live preview</h3>
+                      <p className="text-xs text-[#5f6368]">{activePreview.file.name}</p>
+                    </div>
+                    <span className="rounded-full bg-[#f1f3f4] px-3 py-1 text-[11px] font-medium text-[#5f6368]">
+                      {paperSize}
+                    </span>
+                  </div>
+                  <div className="px-5 pb-5">
+                    <FilePreview
+                      file={activePreview.file}
+                      color={color}
+                      duplex={duplex}
+                      paperSize={paperSize}
+                    />
+                    <p className="text-[11px] text-[#70757a]">
+                      Preview reflects the uploaded document. Color, paper size, and duplex are the print settings applied to checkout.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right: settings + actions */}
@@ -416,6 +502,26 @@ export default function UploadPage() {
                       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-all duration-300 ease-in-out ${duplex ? 'translate-x-[22px]' : 'translate-x-[2px]'} mt-[2px]`} />
                     </button>
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-[#3c4043]">Paper size</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[PaperSize.A4, PaperSize.A3, PaperSize.Letter, PaperSize.Legal].map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => setPaperSize(size)}
+                          disabled={phase !== 'idle'}
+                          className={`rounded-2xl border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+                            paperSize === size
+                              ? 'border-brand-500 bg-brand-50 text-brand-700'
+                              : 'border-[#dadce0] bg-white text-[#5f6368] hover:border-[#bdc1c6] hover:text-[#202124]'
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pt-5 border-t border-[#dadce0] space-y-3">
@@ -444,6 +550,13 @@ export default function UploadPage() {
                     </div>
                   )}
 
+                  {phase === 'syncing' && (
+                    <div className="flex items-center gap-2 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-700">
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      Updating prices for the latest print settings…
+                    </div>
+                  )}
+
                   {hasError && phase === 'idle' && (
                     <button
                       onClick={processAll}
@@ -455,6 +568,15 @@ export default function UploadPage() {
 
                   {allReady && (
                     <>
+                      {settingsDirty && phase === 'idle' && (
+                        <button
+                          onClick={syncReadyJobs}
+                          className="google-button-secondary w-full !py-3 text-[15px]"
+                        >
+                          Update quote for new settings
+                        </button>
+                      )}
+
                       <div className="flex items-end justify-between">
                         <span className="text-sm text-[#5f6368]">Total</span>
                         <div className="text-right">
@@ -465,7 +587,7 @@ export default function UploadPage() {
 
                       <button
                         onClick={payAll}
-                        disabled={phase !== 'idle' || !allReady}
+                        disabled={phase !== 'idle' || !allReady || settingsDirty}
                         className="google-button-primary w-full !py-3 text-[15px] shadow-sm hover:shadow-md"
                       >
                         {phase === 'paying' ? (
@@ -501,19 +623,26 @@ export default function UploadPage() {
   );
 }
 
-function CartItem({ item, onRemove, copies, color, duplex }: {
+function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, paperSize, settingsKey }: {
   item: CartFile;
+  selected: boolean;
+  onSelect: () => void;
   onRemove?: () => void;
   copies: number;
   color: boolean;
   duplex: boolean;
+  paperSize: PrintSettings['paperSize'];
+  settingsKey: string;
 }) {
   const price = useMemo(
     () => {
+      if (item.pages && item.appliedSettingsKey !== settingsKey) {
+        return calculatePrice(item.pages, color ? item.pages : 0, currentSettingsFromRow(color, duplex, copies, paperSize), PRICING_CONFIG).totalPaise;
+      }
       if (item.pricePaise) return item.pricePaise;
-      return calculatePrice(1, color ? 1 : 0, { color, duplex, copies, paperSize: 'A4' }, PRICING_CONFIG).totalPaise;
+      return calculatePrice(1, color ? 1 : 0, currentSettingsFromRow(color, duplex, copies, paperSize), PRICING_CONFIG).totalPaise;
     },
-    [item.pricePaise, color, duplex, copies],
+    [item.appliedSettingsKey, item.pages, item.pricePaise, settingsKey, color, duplex, copies, paperSize],
   );
 
   const statusIcon = () => {
@@ -531,9 +660,20 @@ function CartItem({ item, onRemove, copies, color, duplex }: {
   };
 
   return (
-    <div className={`google-card !p-4 flex items-center gap-3 transition-all duration-200 ${
-      item.status === 'error' ? 'border-red-200 bg-red-50/30' : ''
-    }`}>
+    <div
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={`google-card !p-4 flex w-full items-center gap-3 text-left transition-all duration-200 ${
+        item.status === 'error' ? 'border-red-200 bg-red-50/30' : ''
+      } ${selected ? 'ring-2 ring-brand-200' : ''}`}
+    >
       <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">
         <FileText className="h-4 w-4" />
       </div>
@@ -543,6 +683,7 @@ function CartItem({ item, onRemove, copies, color, duplex }: {
         <p className="text-[11px] text-[#5f6368]">
           {(item.file.size / 1024 / 1024).toFixed(1)} MB
           {item.pages ? ` · ${item.pages} pages` : ''}
+          {item.status === 'ready' && item.appliedSettingsKey !== settingsKey ? ' · quote needs update' : ''}
           {item.status === 'error' && item.error ? ` · ${item.error}` : ''}
         </p>
       </div>
@@ -557,7 +698,11 @@ function CartItem({ item, onRemove, copies, color, duplex }: {
         {statusIcon()}
         {onRemove && item.status !== 'uploading' && item.status !== 'analyzing' && (
           <button
-            onClick={onRemove}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
             className="flex h-7 w-7 items-center justify-center rounded-full text-[#9aa0a6] hover:bg-red-50 hover:text-red-500 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
@@ -566,4 +711,13 @@ function CartItem({ item, onRemove, copies, color, duplex }: {
       </div>
     </div>
   );
+}
+
+function currentSettingsFromRow(
+  color: boolean,
+  duplex: boolean,
+  copies: number,
+  paperSize: PrintSettings['paperSize'],
+): PrintSettings {
+  return { color, duplex, copies, paperSize };
 }

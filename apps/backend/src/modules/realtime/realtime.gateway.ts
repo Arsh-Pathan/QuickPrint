@@ -96,6 +96,10 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
         client.disconnect(true);
         return;
       }
+      if (!client.connected) {
+        this.logger.warn(`agent connect aborted before auth completed shop=${auth.shopId} sock=${client.id}`);
+        return;
+      }
       const set = this.agentSockets.get(auth.shopId) ?? new Set<string>();
       set.add(client.id);
       this.agentSockets.set(auth.shopId, set);
