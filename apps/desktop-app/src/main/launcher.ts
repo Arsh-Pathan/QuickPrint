@@ -102,6 +102,10 @@ export class Launcher {
   }
 
   private getBackendConfig(): ServiceConfig {
+    // App-level secrets (JWT_SECRET, ADMIN_PASSWORD, RAZORPAY_*, AGENT_TOKEN_SECRET)
+    // live in the SQLite Setting table and are managed via Admin → Settings → Secrets.
+    // Bootstrap defaults below are only consumed by SettingsService.envDefaults() on
+    // first run before any admin save — once admin saves any value, it overrides.
     return {
       name: 'backend',
       script: this.requirePath('apps/backend/dist/main.js'),
@@ -114,17 +118,20 @@ export class Launcher {
       env: {
         DATABASE_URL: `file:${this.dbPath}`,
         BACKEND_PORT: String(BACKEND_PORT),
-        NODE_ENV: 'production', // Match validation expectation
+        NODE_ENV: 'production',
         SHOP_ID: 'shop_local_dev',
+        QUICKPRINT_USER_DATA: app.getPath('userData'),
+        PRISMA_QUERY_ENGINE_LIBRARY: this.prismaQueryEnginePath || '',
+        PUBLIC_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}`,
+        CORS_ORIGINS: `http://127.0.0.1:${ADMIN_PORT},http://127.0.0.1:${WEB_PORT}`,
+        // First-run bootstrap defaults so admin can log in immediately:
         JWT_SECRET: 'quickprint-local-jwt-secret-stable-2026',
         AGENT_TOKEN_SECRET: 'quickprint-local-agent-secret-stable-2026',
         ADMIN_PASSWORD: 'admin',
-        PRISMA_QUERY_ENGINE_LIBRARY: this.prismaQueryEnginePath || '',
         RAZORPAY_KEY_ID: 'rzp_test_SmxpE8i6nRCGAT',
         RAZORPAY_KEY_SECRET: 'z0yuRk0ntNWImD81u7ld4FxQ',
-        RAZORPAY_WEBHOOK_SECRET: 'standalone_placeholder_webhook',
-        PUBLIC_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}`,
-        CORS_ORIGINS: `http://127.0.0.1:${ADMIN_PORT},http://127.0.0.1:${WEB_PORT}`,
+        // RAZORPAY_WEBHOOK_SECRET intentionally unset — admin must configure
+        // the real value from Razorpay dashboard via Admin → Settings → Secrets.
       },
     };
   }
@@ -388,6 +395,16 @@ export class Launcher {
 
       log.warn(`Launcher: ${name} exited`, { code, signal, wasReady });
 
+      if (name === 'backend' && this.consumeIntentionalRestartSentinel()) {
+        log.info('Launcher: backend exited intentionally for restart — relaunching');
+        this.setStatus('Applying new settings...');
+        void this.startManagedService(this.getBackendConfig()).catch((err) => {
+          log.error('Launcher: backend restart failed', err);
+          this.setStatus('Restart failed. Please relaunch QuickPrint.');
+        });
+        return;
+      }
+
       if (wasReady) {
         this.setStatus(`${name} stopped unexpectedly. Restart QuickPrint.`);
       }
@@ -545,5 +562,18 @@ export class Launcher {
 
   private async delay(ms: number) {
     await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private consumeIntentionalRestartSentinel(): boolean {
+    const sentinelPath = path.join(app.getPath('userData'), '.intentional-restart');
+    try {
+      if (fs.existsSync(sentinelPath)) {
+        fs.unlinkSync(sentinelPath);
+        return true;
+      }
+    } catch (e: any) {
+      log.warn(`Launcher: failed to consume restart sentinel: ${e.message}`);
+    }
+    return false;
   }
 }

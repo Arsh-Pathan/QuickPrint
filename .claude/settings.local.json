@@ -54,7 +54,18 @@
       "Bash(grep -iE \"^\\\\\\\\\\\\\\\\node_modules\\\\\\\\\\\\\\\\\\(@?pris|prisma|\\\\.prisma\\)\")",
       "Bash(grep -E \"^\\\\\\\\\\\\\\\\node_modules\\\\\\\\\\\\\\\\[^\\\\\\\\\\\\\\\\]+$\")",
       "Bash(grep -cE \"^\\\\\\\\\\\\\\\\node_modules\\\\\\\\\\\\\\\\[^\\\\\\\\\\\\\\\\]+$\")",
-      "Bash(awk -F'\\\\\\\\\\\\\\\\' 'NF==3 && $2==\"node_modules\" {print $3}')"
+      "Bash(awk -F'\\\\\\\\\\\\\\\\' 'NF==3 && $2==\"node_modules\" {print $3}')",
+      "Bash(xargs grep *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npm ls *)",
+      "WebSearch",
+      "WebFetch(domain:razorpay.com)",
+      "Bash(npm --workspace apps/backend run typecheck)",
+      "Bash(npm view *)",
+      "Bash(node *)",
+      "Bash(npx nest *)",
+      "Bash(grep -ao \"workerSrc[\\\\\"' ]*[:=][^,;{}]*\" node_modules/pdf-parse/dist/pdf-parse/cjs/index.cjs)"
     ]
   }
 }

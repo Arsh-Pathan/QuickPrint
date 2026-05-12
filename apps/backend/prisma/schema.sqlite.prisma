@@ -118,8 +118,8 @@ model Payment {
   id                 String        @id @default(cuid())
   jobId              String        @unique
   userId             String
-  razorpayOrderId    String        @unique
-  razorpayPaymentId  String?       @unique
+  razorpayOrderId    String
+  razorpayPaymentId  String?
   razorpaySignature  String?
   amountPaise        Int
   currency           String        @default("INR")
@@ -133,6 +133,8 @@ model Payment {
 
   @@index([userId])
   @@index([status])
+  @@index([razorpayOrderId])
+  @@index([razorpayPaymentId])
 }
 
 model QueueEntry {

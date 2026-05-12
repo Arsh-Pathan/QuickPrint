@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { FilesService } from '../files/files.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 const SECONDS_PER_PAGE = 4;
 
@@ -11,18 +13,19 @@ export class QueueService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
+    private readonly files: FilesService,
+    private readonly audit: AuditLogService,
   ) {}
 
   async enqueue(jobId: string, shopId: string, priority = 0) {
-    const last = await this.prisma.queueEntry.findFirst({
-      where: { shopId },
-      orderBy: { position: 'desc' },
-    });
-    const position = (last?.position ?? 0) + 1;
-    const entry = await this.prisma.queueEntry.upsert({
-      where: { jobId },
-      create: { jobId, shopId, position, priority },
-      update: { position, priority },
+    const entry = await this.prisma.$transaction(async (tx) => {
+      const count = await tx.queueEntry.count({ where: { shopId } });
+      const position = count + 1;
+      return tx.queueEntry.upsert({
+        where: { jobId },
+        create: { jobId, shopId, position, priority },
+        update: { position, priority },
+      });
     });
     await this.broadcastPositions(shopId).catch((e) =>
       this.logger.warn(`broadcastPositions failed shop=${shopId}: ${e.message}`),
@@ -74,15 +77,24 @@ export class QueueService {
       where: { id: next.jobId },
       data: { status: 'PRINTING' },
     });
-    return next;
+    let downloadUrl: string | undefined;
+    try {
+      downloadUrl = await this.files.download(next.job.fileKey);
+    } catch (e) {
+      this.logger.warn(`claimNext downloadUrl failed for job ${next.jobId}: ${(e as Error).message}`);
+    }
+    return { ...next, downloadUrl };
   }
 
   async cancel(jobId: string) {
-    await this.prisma.queueEntry.delete({ where: { jobId } }).catch(() => null);
-    await this.prisma.printJob.update({
-      where: { id: jobId },
-      data: { status: 'CANCELLED' },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.queueEntry.delete({ where: { jobId } }).catch(() => null);
+      await tx.printJob.update({
+        where: { id: jobId },
+        data: { status: 'CANCELLED' },
+      });
     });
+    this.audit.record({ action: 'job.cancelled', entityType: 'PrintJob', entityId: jobId });
   }
 
   /**

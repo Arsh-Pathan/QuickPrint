@@ -1,10 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type Status = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'PAPER_OUT' | 'TONER_LOW' | 'JAM' | 'ERROR';
+const VALID_STATUSES = new Set(['ONLINE', 'OFFLINE', 'BUSY', 'PAPER_OUT', 'TONER_LOW', 'JAM', 'ERROR']);
 
 @Injectable()
 export class PrintersService {
+  private readonly logger = new Logger(PrintersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   list(shopId?: string) {
@@ -35,7 +38,6 @@ export class PrintersService {
     if (!printers || !Array.isArray(printers)) return;
     const now = new Date();
 
-    // Ensure the Shop exists to prevent Postgres foreign key constraint errors
     try {
       await this.prisma.shop.upsert({
         where: { id: shopId },
@@ -43,41 +45,44 @@ export class PrintersService {
         update: {},
       });
     } catch (e) {
-      // safe to ignore if shop already exists
+      this.logger.warn(`shop upsert failed for ${shopId}: ${(e as Error).message}`);
     }
+
+    const statusMap = (raw: unknown): string => {
+      const s = String(raw).toUpperCase();
+      return VALID_STATUSES.has(s) ? s : 'ONLINE';
+    };
 
     for (const p of printers) {
       const pid = String(p.id);
       const pname = String(p.name);
-      
+      const status = statusMap(p.status);
+      const supportsColor = p.supportsColor !== undefined ? Boolean(p.supportsColor) : true;
+      const supportsDuplex = p.supportsDuplex !== undefined ? Boolean(p.supportsDuplex) : true;
+
       try {
-        const existing = await this.prisma.printer.findUnique({ where: { id: pid } });
-        if (existing) {
-          await this.prisma.printer.update({
-            where: { id: pid },
-            data: {
-              name: pname,
-              shopId, // Ensure printer is assigned to the current shop
-              // Only update status if provided, otherwise keep current
-              ...(p.status ? { status: String(p.status).toUpperCase() as any } : {}),
-              lastSeenAt: now,
-            },
-          });
-        } else {
-          await this.prisma.printer.create({
-            data: {
-              id: pid,
-              shopId,
-              name: pname,
-              supportsColor: true,
-              supportsDuplex: true,
-              status: (p.status ? String(p.status).toUpperCase() : 'ONLINE') as any,
-              lastSeenAt: now,
-            },
-          });
-        }
+        await this.prisma.printer.upsert({
+          where: { id: pid },
+          create: {
+            id: pid,
+            shopId,
+            name: pname,
+            supportsColor,
+            supportsDuplex,
+            status,
+            lastSeenAt: now,
+          },
+          update: {
+            name: pname,
+            shopId,
+            supportsColor,
+            supportsDuplex,
+            status,
+            lastSeenAt: now,
+          },
+        });
       } catch (err) {
-        // ignore individual printer insert errors
+        this.logger.warn(`printer upsert failed for ${pid}: ${(err as Error).message}`);
       }
     }
   }

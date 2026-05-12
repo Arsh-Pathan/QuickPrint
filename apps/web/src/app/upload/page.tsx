@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -12,13 +12,17 @@ import {
   Settings2,
   FileText,
   CloudUpload,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth, usePrefs } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { FilePreview } from '@/components/file-preview';
 import { calculatePrice } from '@quickprint/shared';
-import { loadRazorpay } from '@/lib/razorpay';
+import { loadRazorpay, preloadRazorpay } from '@/lib/razorpay';
 
 const PRICING_CONFIG = {
   bwPaise: 200,
@@ -26,7 +30,48 @@ const PRICING_CONFIG = {
   duplexDiscountPct: 10,
 };
 
-type Phase = 'idle' | 'signing' | 'uploading' | 'analyzing' | 'ordering' | 'paying';
+// Retries confirmPayment on network errors and 5xx. Skips retry on 4xx (e.g. invalid_signature),
+// which are permanent. Webhook is the server-side safety net if all retries fail.
+async function confirmPaymentWithRetry(
+  body: { orderId: string; paymentId: string; signature: string },
+  toast: { push: (msg: string, kind?: any) => void },
+): Promise<void> {
+  const delays = [500, 1500, 4500];
+  let lastErr: any = null;
+  for (let attempt = 0; attempt < delays.length + 1; attempt += 1) {
+    try {
+      await api.confirmPayment(body);
+      return;
+    } catch (err: any) {
+      lastErr = err;
+      const msg = String(err?.message ?? '');
+      // api_4xx errors are permanent (bad signature, etc.) — don't retry.
+      if (/^api_4\d{2}/.test(msg)) throw err;
+      if (attempt < delays.length) {
+        toast.push('Confirming payment…', 'info');
+        await new Promise((r) => setTimeout(r, delays[attempt]));
+        continue;
+      }
+    }
+  }
+  // All retries failed. Webhook will reconcile within ~30s if C-1 is configured.
+  const finalErr = new Error(
+    'Payment captured by Razorpay but confirmation failed. Refresh in 30s — your job will appear once the webhook lands.',
+  );
+  (finalErr as any).cause = lastErr;
+  throw finalErr;
+}
+
+type FileStatus = 'pending' | 'uploading' | 'analyzing' | 'ready' | 'error';
+interface CartFile {
+  id: string;
+  file: File;
+  status: FileStatus;
+  error?: string;
+  jobId?: string;
+  pricePaise?: number;
+  pages?: number;
+}
 
 export default function UploadPage() {
   const router = useRouter();
@@ -34,11 +79,12 @@ export default function UploadPage() {
   const prefs = usePrefs();
   const toast = useToast();
 
-  const [file, setFile] = useState<File | null>(null);
+  const [cart, setCart] = useState<CartFile[]>([]);
   const [step, setStep] = useState<'choose' | 'settings'>('choose');
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [phase, setPhase] = useState<'idle' | 'processing' | 'paying'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const [copies, setCopies] = useState(prefs.copies);
   const [color, setColor] = useState(prefs.color);
@@ -48,120 +94,173 @@ export default function UploadPage() {
     if (!token) router.push('/login?next=/upload');
   }, [token, router]);
 
-  // Keep prefs synced as user adjusts; persists across visits.
   useEffect(() => {
     prefs.set({ copies, color, duplex });
-  }, [copies, color, duplex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [copies, color, duplex]);
 
-  const priceBreakdown = useMemo(
-    () =>
-      calculatePrice(1, color ? 1 : 0, { color, duplex, copies, paperSize: 'A4' }, PRICING_CONFIG),
-    [color, duplex, copies],
+  useEffect(() => { preloadRazorpay(); }, []);
+
+  const allReady = cart.length > 0 && cart.every((f) => f.status === 'ready');
+  const hasPending = cart.some((f) => f.status === 'pending' || f.status === 'uploading' || f.status === 'analyzing');
+  const hasError = cart.some((f) => f.status === 'error');
+
+  const totalPaise = useMemo(
+    () => cart.reduce((sum, f) => sum + (f.pricePaise ?? 0), 0),
+    [cart],
   );
 
-  const submitting = phase !== 'idle';
+  const addFiles = useCallback((files: FileList | File[]) => {
+    const newFiles = Array.from(files);
+    setCart((prev) => [
+      ...prev,
+      ...newFiles.map((f) => ({
+        id: crypto.randomUUID(),
+        file: f,
+        status: 'pending' as FileStatus,
+      })),
+    ]);
+    if (newFiles.length > 0) setStep('settings');
+  }, []);
 
-  const onPrintAndPay = async () => {
-    if (!file) return;
+  const removeFile = useCallback((id: string) => {
+    setCart((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  const updateFile = useCallback((id: string, patch: Partial<CartFile>) => {
+    setCart((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  }, []);
+
+  const processAll = async () => {
     setError(null);
-    setPhase('signing');
+    const signal = new AbortController();
+    abortRef.current = signal;
+    setPhase('processing');
+
+    const pending = cart.filter((f) => f.status === 'pending' || f.status === 'error');
+
+    const MAX_MB = 50;
+    const oversized = pending.find((f) => f.file.size > MAX_MB * 1024 * 1024);
+    if (oversized) {
+      setError(`${oversized.file.name} exceeds ${MAX_MB}MB limit`);
+      setPhase('idle');
+      abortRef.current = null;
+      return;
+    }
+    const unsupported = pending.find(
+      (f) => !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(f.file.type),
+    );
+    if (unsupported) {
+      setError(`${unsupported.file.name} is not a supported file type`);
+      setPhase('idle');
+      abortRef.current = null;
+      return;
+    }
 
     try {
-      toast.push('Preparing upload…', 'info');
-      const sign = await api.signUpload({
-        fileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-      });
+      for (const cf of pending) {
+        if (signal.signal.aborted) break;
 
-      setPhase('uploading');
-      await api.upload(sign.uploadUrl, file);
+        try {
+          updateFile(cf.id, { status: 'uploading', error: undefined });
 
-      setPhase('analyzing');
-      toast.push('Analyzing your document…', 'info');
-      const job = await api.createJob({
-        fileKey: sign.fileKey,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-        settings: { color, duplex, copies, paperSize: 'A4' },
-      });
+          const sign = await api.signUpload({
+            fileName: cf.file.name,
+            mimeType: cf.file.type,
+            fileSize: cf.file.size,
+          });
 
-      setPhase('ordering');
-      const isLoaded = await loadRazorpay();
+          await api.upload(sign.uploadUrl, cf.file, signal.signal);
+
+          if (signal.signal.aborted) break;
+          updateFile(cf.id, { status: 'analyzing' });
+
+          const job = await api.createJob({
+            fileKey: sign.fileKey,
+            fileName: cf.file.name,
+            fileSize: cf.file.size,
+            mimeType: cf.file.type,
+            settings: { color, duplex, copies, paperSize: 'A4' },
+          });
+
+          updateFile(cf.id, {
+            status: 'ready',
+            jobId: job.id,
+            pricePaise: job.priceTotalPaise,
+            pages: job.pages,
+          });
+        } catch (err: any) {
+          if (err.name === 'AbortError') break;
+          updateFile(cf.id, {
+            status: 'error',
+            error: err.message || 'Processing failed',
+          });
+        }
+      }
+    } finally {
+      setPhase('idle');
+      abortRef.current = null;
+    }
+  };
+
+  const payAll = async () => {
+    const ready = cart.filter((f) => f.status === 'ready' && f.jobId);
+    if (ready.length === 0) return;
+
+    setPhase('paying');
+
+    try {
+      const [isLoaded] = await Promise.all([loadRazorpay()]);
       if (!isLoaded) throw new Error('Razorpay SDK failed to load');
-      const order = await api.createOrder(job.id);
 
-      setPhase('paying');
-      const options = {
-        key: order.keyId,
-        amount: order.amountPaise,
-        currency: 'INR',
-        name: 'QuickPrint',
-        description: `Printing ${file.name}`,
-        order_id: order.orderId,
-        // Top-level `method` is the official UPI-only switch documented by
-        // Razorpay. Combined with the display block below it forces UPI
-        // (collect / intent / QR depending on platform) without showing
-        // cards, wallets, netbanking, EMI or paylater.
-        method: {
-          upi: true,
-          card: false,
-          netbanking: false,
-          wallet: false,
-          emi: false,
-          paylater: false,
-        },
-        handler: async (response: any) => {
-          try {
-            await api.confirmPayment({
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-            });
-            router.push(`/jobs/${job.id}`);
-          } catch (err) {
-            toast.push('Payment confirmation failed — opening status anyway', 'error');
-            router.push(`/jobs/${job.id}`);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setPhase('idle');
-            toast.push('Payment cancelled', 'info');
-          },
-        },
-        prefill: {
-          contact: user?.phone ?? undefined,
-          name: user?.name ?? undefined,
-          // In Razorpay test mode UPI is only simulated via this VPA on
-          // desktop — without it Checkout has nothing to render and shows
-          // "No appropriate payment method found." Real keys ignore this.
-          vpa: order.keyId.startsWith('rzp_test_') ? 'success@razorpay' : undefined,
-        },
-        theme: { color: '#1a73e8' },
-        // Razorpay's canonical UPI-only sample. `show_default_blocks: false`
-        // hides every method that isn't in the listed block.
-        config: {
-          display: {
-            blocks: {
-              banks: {
-                name: 'Pay via UPI',
-                instruments: [{ method: 'upi' }],
-              },
-            },
-            sequence: ['block.banks'],
-            preferences: { show_default_blocks: false },
-          },
-        },
-      };
+      const jobIds = ready.map((r) => r.jobId!);
+      const batchOrder = await api.createBatchOrder(jobIds);
 
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
+      await new Promise<void>((resolve, reject) => {
+        const options = {
+          key: batchOrder.keyId,
+          amount: batchOrder.amountPaise,
+          currency: 'INR',
+          name: 'QuickPrint',
+          description: `Printing ${ready.length} file${ready.length !== 1 ? 's' : ''}`,
+          order_id: batchOrder.orderId,
+          handler: async (response: any) => {
+            try {
+              await confirmPaymentWithRetry({
+                orderId: response.razorpay_order_id,
+                paymentId: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              }, toast);
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+          modal: {
+            ondismiss: () => reject(new Error('Payment cancelled')),
+          },
+          prefill: {
+            contact: user?.phone ?? undefined,
+            name: user?.name ?? undefined,
+            vpa: batchOrder.keyId.startsWith('rzp_test_') ? 'success@razorpay' : undefined,
+          },
+          theme: { color: '#1a73e8' },
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      });
+
+      const firstId = jobIds[0];
+      if (firstId) router.push(`/jobs/${firstId}`);
     } catch (err: any) {
-      const msg = err.message || 'Processing failed';
-      setError(msg);
-      toast.push(msg.includes('upload_failed') ? 'Upload failed — check your connection' : msg, 'error');
+      if (err.message === 'Payment cancelled') {
+        toast.push('Payment cancelled', 'info');
+      } else {
+        const msg = err.message || 'Payment failed';
+        setError(msg);
+        toast.push(msg, 'error');
+      }
+    } finally {
       setPhase('idle');
     }
   };
@@ -177,29 +276,21 @@ export default function UploadPage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) {
-      setFile(f);
-      setStep('settings');
-    }
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-[#f8f9fa] px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex w-full max-w-4xl flex-col items-center">
-        <header className="mb-10 flex flex-col items-center gap-3">
+        <header className="mb-8 flex flex-col items-center gap-3">
           <Link href="/" className="transition-transform hover:scale-105">
             <Image src="/logo.svg" alt="QuickPrint" width={160} height={70} className="h-12 w-auto object-contain" />
           </Link>
-          <h1 className="text-[22px] font-normal text-[#202124]">
-            {step === 'choose' ? 'Upload your document' : 'Print settings'}
-          </h1>
-          {step === 'choose' && (
-            <p className="text-sm text-[#5f6368]">Supported: PDF, PNG, JPG, WEBP</p>
-          )}
+          <h1 className="text-[22px] font-normal text-[#202124]">Upload documents</h1>
+          <p className="text-sm text-[#5f6368]">Supported: PDF, PNG, JPG, WEBP</p>
         </header>
 
-        {step === 'choose' ? (
+        {cart.length === 0 && step === 'choose' ? (
           <div className="w-full max-w-md" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
             <label
               className={`google-card group flex w-full cursor-pointer flex-col items-center justify-center border-2 border-dashed p-16 transition-all duration-300 ${
@@ -213,44 +304,35 @@ export default function UploadPage() {
               <input
                 type="file"
                 className="hidden"
+                multiple
                 accept=".pdf,.png,.jpg,.jpeg,.webp"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    setFile(f);
-                    setStep('settings');
-                  }
+                  if (e.target.files?.length) addFiles(e.target.files);
                 }}
               />
-              <div
-                className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${
-                  dragActive
-                    ? 'bg-brand-100 text-brand-600 scale-110'
-                    : 'bg-brand-50 text-brand-500 group-hover:bg-brand-100 group-hover:scale-105'
-                }`}
-              >
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${
+                dragActive
+                  ? 'bg-brand-100 text-brand-600 scale-110'
+                  : 'bg-brand-50 text-brand-500 group-hover:bg-brand-100 group-hover:scale-105'
+              }`}>
                 <CloudUpload className="h-8 w-8" />
               </div>
               <p className="mt-5 text-[15px] font-medium text-[#202124]">
-                {dragActive ? 'Drop your file here' : 'Click to upload'}
+                {dragActive ? 'Drop your files here' : 'Click to upload'}
               </p>
-              <p className="mt-1.5 text-[13px] text-[#70757a]">or drag and drop your file here</p>
+              <p className="mt-1.5 text-[13px] text-[#70757a]">or drag and drop — add multiple files</p>
             </label>
 
-            <div className="mt-8 grid grid-cols-2 gap-4">
+            <div className="mt-6 grid grid-cols-2 gap-4">
               <div className="google-card flex items-center gap-4 !p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">
-                  B&amp;W
-                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">B&amp;W</div>
                 <div>
                   <p className="text-sm font-medium text-[#202124]">₹2.00</p>
                   <p className="text-[11px] text-[#70757a]">per page</p>
                 </div>
               </div>
               <div className="google-card flex items-center gap-4 !p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600">
-                  Color
-                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600">Color</div>
                 <div>
                   <p className="text-sm font-medium text-[#202124]">₹10.00</p>
                   <p className="text-[11px] text-[#70757a]">per page</p>
@@ -260,23 +342,44 @@ export default function UploadPage() {
           </div>
         ) : (
           <div className="flex w-full flex-col gap-6 lg:flex-row" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+            {/* Left: file cart */}
             <div className="flex-1 space-y-4">
-              <button
-                onClick={() => setStep('choose')}
-                disabled={submitting}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-[#5f6368] hover:text-[#202124] transition-colors rounded-full hover:bg-[#f1f3f4] px-3 py-1.5 -ml-3 disabled:opacity-50"
-              >
-                <ChevronLeft className="h-4 w-4" /> Change file
-              </button>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => { setCart([]); setStep('choose'); }}
+                  disabled={phase === 'paying'}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[#5f6368] hover:text-[#202124] transition-colors rounded-full hover:bg-[#f1f3f4] px-3 py-1.5 -ml-3 disabled:opacity-50"
+                >
+                  <ChevronLeft className="h-4 w-4" /> New files
+                </button>
 
-              <div className="flex items-center gap-2 rounded-full bg-[#f1f3f4] px-4 py-2 w-fit">
-                <FileText className="h-4 w-4 text-[#5f6368]" />
-                <span className="text-sm font-medium text-[#3c4043] truncate max-w-[200px]">{file?.name}</span>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors rounded-full hover:bg-brand-50 px-3 py-1.5 disabled:opacity-50">
+                  <Plus className="h-4 w-4" /> Add more
+                  <input
+                    type="file"
+                    className="hidden"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); }}
+                  />
+                </label>
               </div>
 
-              <FilePreview file={file!} />
+              <div className="space-y-3">
+                {cart.map((cf) => (
+                  <CartItem
+                    key={cf.id}
+                    item={cf}
+                    onRemove={phase === 'idle' ? () => removeFile(cf.id) : undefined}
+                    copies={copies}
+                    color={color}
+                    duplex={duplex}
+                  />
+                ))}
+              </div>
             </div>
 
+            {/* Right: settings + actions */}
             <div className="w-full lg:w-[400px]">
               <div className="google-card flex flex-col gap-6">
                 <div className="flex items-center gap-3 border-b border-[#dadce0] pb-4">
@@ -284,160 +387,183 @@ export default function UploadPage() {
                     <Settings2 className="h-4 w-4 text-brand-500" />
                   </div>
                   <h2 className="text-[16px] font-medium text-[#202124]">Print Settings</h2>
+                  {cart.length > 0 && (
+                    <span className="ml-auto text-xs text-[#9aa0a6] tabular-nums">{cart.length} file{cart.length !== 1 ? 's' : ''}</span>
+                  )}
                 </div>
 
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#3c4043]">Copies</label>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setCopies(Math.max(1, copies - 1))}
-                        disabled={submitting}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors text-[#5f6368] hover:text-[#202124] disabled:opacity-50"
-                      >
-                        −
-                      </button>
+                      <button onClick={() => setCopies(Math.max(1, copies - 1))} disabled={phase !== 'idle'} className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors text-[#5f6368] hover:text-[#202124] disabled:opacity-50">−</button>
                       <span className="w-8 text-center font-semibold text-sm tabular-nums">{copies}</span>
-                      <button
-                        onClick={() => setCopies(copies + 1)}
-                        disabled={submitting}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors text-[#5f6368] hover:text-[#202124] disabled:opacity-50"
-                      >
-                        +
-                      </button>
+                      <button onClick={() => setCopies(copies + 1)} disabled={phase !== 'idle'} className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors text-[#5f6368] hover:text-[#202124] disabled:opacity-50">+</button>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#3c4043]">Color</label>
                     <div className="flex gap-1 p-1 bg-[#f1f3f4] rounded-full">
-                      <button
-                        onClick={() => setColor(false)}
-                        disabled={submitting}
-                        className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:opacity-50 ${
-                          !color ? 'bg-white shadow-sm text-[#202124]' : 'text-[#5f6368] hover:text-[#202124]'
-                        }`}
-                      >
-                        B&amp;W
-                      </button>
-                      <button
-                        onClick={() => setColor(true)}
-                        disabled={submitting}
-                        className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:opacity-50 ${
-                          color ? 'bg-white shadow-sm text-brand-600' : 'text-[#5f6368] hover:text-[#202124]'
-                        }`}
-                      >
-                        Color
-                      </button>
+                      <button onClick={() => setColor(false)} disabled={phase !== 'idle'} className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:opacity-50 ${!color ? 'bg-white shadow-sm text-[#202124]' : 'text-[#5f6368] hover:text-[#202124]'}`}>B&amp;W</button>
+                      <button onClick={() => setColor(true)} disabled={phase !== 'idle'} className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:opacity-50 ${color ? 'bg-white shadow-sm text-brand-600' : 'text-[#5f6368] hover:text-[#202124]'}`}>Color</button>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#3c4043]">Double-sided</label>
-                    <button
-                      onClick={() => setDuplex(!duplex)}
-                      disabled={submitting}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-50 ${
-                        duplex ? 'bg-brand-500' : 'bg-[#bdc1c6]'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-all duration-300 ease-in-out ${
-                          duplex ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                        } mt-[2px]`}
-                      />
+                    <button onClick={() => setDuplex(!duplex)} disabled={phase !== 'idle'} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-50 ${duplex ? 'bg-brand-500' : 'bg-[#bdc1c6]'}`}>
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-all duration-300 ease-in-out ${duplex ? 'translate-x-[22px]' : 'translate-x-[2px]'} mt-[2px]`} />
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-2 pt-5 border-t border-[#dadce0]">
-                  <div className="flex items-end justify-between mb-6">
-                    <span className="text-sm text-[#5f6368]">Estimated Total</span>
-                    <div className="text-right">
-                      <p className="text-3xl font-bold text-[#202124] tabular-nums">
-                        ₹{(priceBreakdown.totalPaise / 100).toFixed(2)}
-                      </p>
-                      <p className="text-[11px] text-[#70757a] mt-0.5">Confirmed after page analysis</p>
-                    </div>
-                  </div>
+                <div className="pt-5 border-t border-[#dadce0] space-y-3">
+                  {phase === 'idle' && !allReady && !hasError && (
+                    <button
+                      onClick={processAll}
+                      disabled={cart.length === 0}
+                      className="google-button-primary w-full !py-3 text-[15px] shadow-sm hover:shadow-md"
+                    >
+                      Upload &amp; Analyze
+                    </button>
+                  )}
 
-                  <button
-                    onClick={onPrintAndPay}
-                    disabled={submitting}
-                    className="google-button-primary w-full !py-3 text-[15px] shadow-sm hover:shadow-md"
-                  >
-                    {submitting ? (
-                      <span className="inline-flex items-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        {phaseLabel(phase)}
-                      </span>
-                    ) : (
-                      <>
-                        <CreditCard className="h-5 w-5" /> Pay &amp; Print
-                      </>
-                    )}
-                  </button>
-
-                  {/* Progress hint */}
-                  {submitting && (
-                    <div className="mt-4 flex gap-1.5">
-                      {(['signing', 'uploading', 'analyzing', 'ordering', 'paying'] as Phase[]).map((p) => {
-                        const order: Phase[] = ['signing', 'uploading', 'analyzing', 'ordering', 'paying'];
-                        const done = order.indexOf(phase) > order.indexOf(p);
-                        const active = phase === p;
-                        return (
-                          <span
-                            key={p}
-                            className={`h-1 flex-1 rounded-full transition-colors ${
-                              done ? 'bg-brand-500' : active ? 'bg-brand-300 animate-pulse' : 'bg-[#dadce0]'
-                            }`}
-                          />
-                        );
-                      })}
+                  {phase === 'processing' && (
+                    <div className="flex flex-col gap-2 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-700">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                        Analyzing documents…
+                      </div>
+                      <button
+                        onClick={() => { abortRef.current?.abort(); toast.push('Cancelled', 'info'); }}
+                        className="self-start text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
 
-                  {error && (
-                    <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-[#d93025]">
-                      <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      {error}
-                    </div>
+                  {hasError && phase === 'idle' && (
+                    <button
+                      onClick={processAll}
+                      className="google-button-secondary w-full !py-3 text-[15px]"
+                    >
+                      Retry failed files
+                    </button>
+                  )}
+
+                  {allReady && (
+                    <>
+                      <div className="flex items-end justify-between">
+                        <span className="text-sm text-[#5f6368]">Total</span>
+                        <div className="text-right">
+                          <p className="text-3xl font-bold text-[#202124] tabular-nums">₹{(totalPaise / 100).toFixed(2)}</p>
+                          <p className="text-[11px] text-[#70757a] mt-0.5">{cart.length} file{cart.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={payAll}
+                        disabled={phase !== 'idle' || !allReady}
+                        className="google-button-primary w-full !py-3 text-[15px] shadow-sm hover:shadow-md"
+                      >
+                        {phase === 'paying' ? (
+                          <span className="inline-flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Opening payment…</span>
+                        ) : (
+                          <><CreditCard className="h-5 w-5" /> Pay &amp; Print All</>
+                        )}
+                      </button>
+
+                      <p className="text-center text-[11px] text-[#70757a]">
+                        One payment for all files
+                      </p>
+                    </>
                   )}
                 </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-[#d93025]">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {error}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
         <footer className="mt-20 flex flex-col items-center gap-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#bdc1c6]">
-            Automation by AI &amp; ML Club
-          </p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#bdc1c6]">Automation by AI &amp; ML Club</p>
         </footer>
       </div>
     </main>
   );
 }
 
-function phaseLabel(phase: Phase): string {
-  switch (phase) {
-    case 'signing':
-      return 'Preparing upload';
-    case 'uploading':
-      return 'Uploading file';
-    case 'analyzing':
-      return 'Analyzing pages';
-    case 'ordering':
-      return 'Opening payment';
-    case 'paying':
-      return 'Waiting for payment';
-    default:
-      return 'Working';
-  }
+function CartItem({ item, onRemove, copies, color, duplex }: {
+  item: CartFile;
+  onRemove?: () => void;
+  copies: number;
+  color: boolean;
+  duplex: boolean;
+}) {
+  const price = useMemo(
+    () => {
+      if (item.pricePaise) return item.pricePaise;
+      return calculatePrice(1, color ? 1 : 0, { color, duplex, copies, paperSize: 'A4' }, PRICING_CONFIG).totalPaise;
+    },
+    [item.pricePaise, color, duplex, copies],
+  );
+
+  const statusIcon = () => {
+    switch (item.status) {
+      case 'pending':
+        return <div className="h-5 w-5 rounded-full border-2 border-[#dadce0]" />;
+      case 'uploading':
+      case 'analyzing':
+        return <Loader2 className="h-5 w-5 animate-spin text-brand-500" />;
+      case 'ready':
+        return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+      case 'error':
+        return <AlertCircle className="h-5 w-5 text-[#d93025]" />;
+    }
+  };
+
+  return (
+    <div className={`google-card !p-4 flex items-center gap-3 transition-all duration-200 ${
+      item.status === 'error' ? 'border-red-200 bg-red-50/30' : ''
+    }`}>
+      <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">
+        <FileText className="h-4 w-4" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-[#202124] truncate">{item.file.name}</p>
+        <p className="text-[11px] text-[#5f6368]">
+          {(item.file.size / 1024 / 1024).toFixed(1)} MB
+          {item.pages ? ` · ${item.pages} pages` : ''}
+          {item.status === 'error' && item.error ? ` · ${item.error}` : ''}
+        </p>
+      </div>
+
+      <div className="text-right shrink-0">
+        <p className="text-sm font-semibold text-[#202124] tabular-nums">
+          ₹{(price / 100).toFixed(2)}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        {statusIcon()}
+        {onRemove && item.status !== 'uploading' && item.status !== 'analyzing' && (
+          <button
+            onClick={onRemove}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-[#9aa0a6] hover:bg-red-50 hover:text-red-500 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -19,10 +19,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Already signed in? Skip the form unless the URL forces re-auth.
-  useEffect(() => {
-    if (token && user) router.replace(next);
-  }, [token, user, next, router]);
+  // Already signed in? Redirect immediately — never render the form
+  if (token && user) {
+    router.replace(next);
+    return null;
+  }
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault();

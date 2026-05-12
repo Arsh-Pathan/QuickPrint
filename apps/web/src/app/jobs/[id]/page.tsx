@@ -243,12 +243,15 @@ function DetailRow({
 function ConnectionPill({ connected }: { connected: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all duration-500 ${
         connected ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f1f3f4] text-[#5f6368]'
       }`}
     >
-      {connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-      {connected ? 'Live' : 'Reconnecting…'}
+      <span className={`relative flex h-2 w-2 ${connected ? '' : 'opacity-40'}`}>
+        <span className={`absolute inline-flex h-full w-full rounded-full ${connected ? 'bg-emerald-400 animate-ping' : ''} opacity-75`}></span>
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-[#bdc1c6]'}`}></span>
+      </span>
+      {connected ? 'Connected' : 'Offline'}
     </span>
   );
 }

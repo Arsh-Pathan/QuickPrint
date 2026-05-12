@@ -1,5 +1,13 @@
-import { useAuth } from './auth';
 import { api } from './api';
+
+export interface ShopSecrets {
+  razorpayKeyId?: string;
+  razorpayKeySecret?: string;
+  razorpayWebhookSecret?: string;
+  jwtSecret?: string;
+  agentTokenSecret?: string;
+  adminPassword?: string;
+}
 
 export interface ShopSettings {
   shopName: string;
@@ -10,20 +18,32 @@ export interface ShopSettings {
   acceptingJobs: boolean;
   publicUrl?: string;
   cloudflareToken?: string;
+  /** Masked values from server (e.g. ••••••••XYZ4) — never raw. */
+  secrets?: ShopSecrets;
+}
+
+export interface UpdateSettingsResponse extends ShopSettings {
+  restartRequired?: boolean;
 }
 
 export class SettingsService {
   static async getSettings(): Promise<ShopSettings> {
     try {
-      const data = await api.get<ShopSettings>('/settings');
-      return data;
-    } catch (error) {
-      throw new Error('Failed to fetch settings');
+      return await api.get<ShopSettings>('/settings');
+    } catch {
+      throw new Error('Failed to load settings');
     }
   }
 
-  static async updateSettings(patch: Partial<ShopSettings>): Promise<ShopSettings> {
-    const data = await api.put<ShopSettings>('/settings', patch);
-    return data;
+  static async updateSettings(patch: Partial<ShopSettings>): Promise<UpdateSettingsResponse> {
+    return api.put<UpdateSettingsResponse>('/settings', patch);
+  }
+
+  static async updateSecrets(secrets: ShopSecrets): Promise<{ ok: boolean; restartRequired: boolean }> {
+    return api.put('/settings/secrets', secrets);
+  }
+
+  static async restartBackend(): Promise<{ ok: boolean; restarting: boolean }> {
+    return api.post('/admin/restart', {});
   }
 }

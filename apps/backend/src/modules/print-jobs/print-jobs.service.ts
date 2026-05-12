@@ -9,12 +9,12 @@ import type { CreatePrintJobDto } from '@quickprint/shared';
 @Injectable()
 export class PrintJobsService {
   private readonly logger = new Logger(PrintJobsService.name);
-  /**
-   * Single-shop deployment fallback. QuickPrint is one instance per shop;
-   * SHOP_ID identifies which one. Required in production via env validation
-   * elsewhere; falls back to the dev shop locally so tests still work.
-   */
   private readonly defaultShopId = process.env.SHOP_ID ?? 'shop_local_dev';
+
+  // Normalize DB status to lowercase for frontend
+  private normalize(job: any) {
+    return { ...job, status: job.status?.toLowerCase() ?? job.status };
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -38,7 +38,7 @@ export class PrintJobsService {
     const analysis = await this.files.analyze(dto.fileKey, dto.mimeType);
     const breakdown = await this.pricing.quote(analysis.pages, analysis.colorPages, dto.settings);
 
-    return this.prisma.printJob.create({
+    const job = await this.prisma.printJob.create({
       data: {
         ownerId: userId,
         fileKey: dto.fileKey,
@@ -55,36 +55,28 @@ export class PrintJobsService {
         pageRange: dto.settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
         priceBreakdown: JSON.stringify(breakdown),
-        printerId: dto.printerId, // Persist the targeted printer if provided
+        printerId: dto.printerId,
       },
     });
+    return this.normalize(job);
   }
 
-  /**
-   * Retrieves a single job, verifying ownership for security.
-   */
   async findOwned(userId: string, jobId: string) {
     const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('job_not_found');
     if (job.ownerId !== userId) throw new ForbiddenException('not_owner');
-    return job;
+    return this.normalize(job);
   }
 
-  /**
-   * Lists the most recent jobs for a specific user.
-   */
   async listForUser(userId: string) {
-    return this.prisma.printJob.findMany({
+    const jobs = await this.prisma.printJob.findMany({
       where: { ownerId: userId },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
+    return jobs.map((j) => this.normalize(j));
   }
 
-  /**
-   * Admin-scoped recent jobs list. Returns jobs at a shop (or all if
-   * shopId is omitted), most recent first. Used by the admin dashboard.
-   */
   async listForAdmin(opts: { shopId?: string; limit?: number; sinceHours?: number }) {
     const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
     const since = opts.sinceHours
@@ -93,7 +85,7 @@ export class PrintJobsService {
     const shopFilter = opts.shopId
       ? { OR: [{ shopId: opts.shopId }, { shopId: null }] }
       : {};
-    return this.prisma.printJob.findMany({
+    const jobs = await this.prisma.printJob.findMany({
       where: {
         ...shopFilter,
         ...(since ? { createdAt: { gte: since } } : {}),
@@ -101,6 +93,7 @@ export class PrintJobsService {
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+    return jobs.map((j) => this.normalize(j));
   }
 
   /** 
@@ -144,33 +137,47 @@ export class PrintJobsService {
    * 4. Picks an available printer and assigns the job to the shop agent.
    */
   async markPaidAndEnqueue(jobId: string) {
-    const job = await this.prisma.printJob.update({
+    const pre = await this.prisma.printJob.findUnique({
       where: { id: jobId },
-      data: { status: 'QUEUED', paidAt: new Date() },
+      select: { paidAt: true },
     });
+    const job = await this.prisma.printJob.update({
+      where: { id: jobId, status: { in: ['CREATED', 'PAID'] } },
+      data: { status: 'QUEUED', paidAt: pre?.paidAt ?? new Date() },
+    }).catch(() => null);
+    if (!job) {
+      this.logger.warn(`markPaidAndEnqueue: job ${jobId} already processed or missing`);
+      return null;
+    }
     const shopId = job.shopId ?? this.defaultShopId;
     await this.queue.enqueue(job.id, shopId, job.priority);
     this.realtime.emitJobStatus(job.id, 'queued');
 
     const printer = await this.pickPrinter(shopId, job);
     const downloadUrl = await this.files.download(job.fileKey);
-    const assigned = this.realtime.assignJobToAgent(shopId, {
-      id: job.id,
-      fileUrl: downloadUrl,
-      fileName: job.fileName,
-      fileHash: job.fileHash ?? undefined,
-      printerId: printer?.id ?? 'default',
-      copies: job.copies,
-      duplex: job.duplex,
-      color: job.color,
-      paperSize: job.paperSize,
-      pageRange: job.pageRange ?? undefined,
-    });
+
+    let assigned = false;
+    if (printer) {
+      assigned = this.realtime.assignJobToAgent(shopId, {
+        id: job.id,
+        fileUrl: downloadUrl,
+        fileName: job.fileName,
+        fileHash: job.fileHash ?? undefined,
+        printerId: printer.id,
+        copies: job.copies,
+        duplex: job.duplex,
+        color: job.color,
+        paperSize: job.paperSize,
+        pageRange: job.pageRange ?? undefined,
+      });
+    } else {
+      this.logger.warn(`Job ${job.id}: no online printer available, job queued without assignment`);
+    }
 
     this.logger.log(
       `Job ${job.id} paid → queued (shop=${shopId} agent_online=${assigned})`,
     );
-    return job;
+    return this.normalize(job);
   }
 
   /**

@@ -23,6 +23,13 @@ export interface PageAnalysis {
  * Service to analyze documents for page count, best-effort color-page
  * metadata, and integrity hashes. Pricing still follows the user's selected
  * print mode; colorPages is retained for analytics and downstream use.
+ *
+ * Page-count strategy (two-tier fallback):
+ *  1. pdf-lib (primary) — also detects color pages
+ *  2. pdf-parse         — fallback for PDFs pdf-lib cannot parse
+ *  If both fail, defaults are returned (pages: 1, colorPages: 0) and a
+ *  warning is logged. The print-job pipeline MUST NEVER be blocked by
+ *  a page-analysis failure.
  */
 @Injectable()
 export class PageAnalyzerService {
@@ -35,29 +42,21 @@ export class PageAnalyzerService {
     const fileHash = createHash('sha256').update(buf).digest('hex');
 
     if (mimeType === 'application/pdf') {
-      try {
-        if (buf.length < 5 || buf.subarray(0, 5).toString() !== '%PDF-') {
-          this.logger.warn(
-            `page-analyzer: ${fileKey} missing PDF magic bytes, defaulting to 1 page`,
-          );
-          return { pages: 1, colorPages: 0, fileHash };
-        }
-
-        const pdfDoc = await PDFDocument.load(buf, {
-          ignoreEncryption: true,
-          updateMetadata: false,
-        });
-        const pages = pdfDoc.getPageCount();
-        const colorPages = pdfDoc.getPages().reduce(
-          (count, page) => count + (pageHasChromaticContent(page.node) ? 1 : 0),
-          0,
+      if (buf.length < 5 || buf.subarray(0, 5).toString() !== '%PDF-') {
+        this.logger.warn(
+          `page-analyzer: ${fileKey} missing PDF magic bytes, defaulting to 1 page`,
         );
+        return { pages: 1, colorPages: 0, fileHash };
+      }
 
-        return { pages, colorPages, fileHash };
+      try {
+        return await this.analyzeWithPdfLib(buf, fileHash);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        this.logger.error(`page-analyzer: pdf-lib parse failed for ${fileKey}: ${msg}`);
-        return { pages: 1, colorPages: 0, fileHash };
+        this.logger.warn(
+          `[PageAnalyzerService] pdf-lib parse failed for ${fileKey}, falling back to pdf-parse: ${msg}`,
+        );
+        return this.analyzeWithPdfParse(buf, fileKey, fileHash);
       }
     }
 
@@ -70,6 +69,45 @@ export class PageAnalyzerService {
     }
 
     return { pages: 1, colorPages: 0, fileHash };
+  }
+
+  private async analyzeWithPdfLib(
+    buf: Buffer,
+    fileHash: string,
+  ): Promise<PageAnalysis> {
+    const pdfDoc = await PDFDocument.load(buf, {
+      ignoreEncryption: true,
+      updateMetadata: false,
+    });
+    const pages = pdfDoc.getPageCount();
+    const colorPages = pdfDoc.getPages().reduce(
+      (count, page) => count + (pageHasChromaticContent(page.node) ? 1 : 0),
+      0,
+    );
+    return { pages, colorPages, fileHash };
+  }
+
+  private async analyzeWithPdfParse(
+    buf: Buffer,
+    fileKey: string,
+    fileHash: string,
+  ): Promise<PageAnalysis> {
+    try {
+      const { PDFParse } = await import('pdf-parse');
+      const parser = new PDFParse({ data: buf });
+      const info = await parser.getInfo();
+      await parser.destroy();
+      this.logger.log(
+        `[PageAnalyzerService] pdf-parse succeeded for ${fileKey}: ${info.total} pages`,
+      );
+      return { pages: info.total, colorPages: 0, fileHash };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `[PageAnalyzerService] pdf-parse also failed for ${fileKey}, returning null: ${msg}`,
+      );
+      return { pages: 1, colorPages: 0, fileHash };
+    }
   }
 }
 

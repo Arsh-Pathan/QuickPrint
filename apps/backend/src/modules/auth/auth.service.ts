@@ -2,6 +2,8 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class AuthService {
@@ -11,10 +13,15 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly audit: AuditLogService,
+    private readonly settings: SettingsService,
   ) {}
 
   async adminLogin(password: string) {
-    const expected = this.config.get<string>('ADMIN_PASSWORD');
+    const expected =
+      (await this.settings.getSecret('adminPassword')) ||
+      this.config.get<string>('ADMIN_PASSWORD') ||
+      '';
     if (!expected || password !== expected) {
       throw new UnauthorizedException('invalid_credentials');
     }
@@ -24,6 +31,12 @@ export class AuthService {
       create: { phone: 'admin', role: 'ADMIN', name: 'Admin' },
     });
     const token = await this.jwt.signAsync({ sub: user.id, role: user.role });
+    this.audit.record({
+      action: 'auth.admin-login',
+      entityType: 'User',
+      entityId: user.id,
+      after: { role: user.role },
+    });
     return { token, user: { id: user.id, role: user.role } };
   }
 

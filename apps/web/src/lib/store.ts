@@ -23,7 +23,7 @@ export const useAuth = create<AuthState>()(
       token: null,
       setAuth: (user, token) => {
         if (typeof window !== 'undefined') {
-          window.localStorage.setItem('qp_token', token);
+          try { window.localStorage.setItem('qp_token', token); } catch { /* private browsing */ }
         }
         set({ user, token });
       },
@@ -31,7 +31,7 @@ export const useAuth = create<AuthState>()(
         set((s) => ({ user: s.user ? { ...s.user, ...patch } : s.user })),
       logout: () => {
         if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('qp_token');
+          try { window.localStorage.removeItem('qp_token'); } catch { /* private browsing */ }
         }
         set({ user: null, token: null });
       },

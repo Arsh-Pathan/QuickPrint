@@ -7,6 +7,30 @@ export class AuditLogService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  async record(opts: {
+    actorId?: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    before?: unknown;
+    after?: unknown;
+  }) {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          actorId: opts.actorId ?? null,
+          action: opts.action,
+          entityType: opts.entityType,
+          entityId: opts.entityId,
+          before: opts.before != null ? JSON.stringify(opts.before) : null,
+          after: opts.after != null ? JSON.stringify(opts.after) : null,
+        },
+      });
+    } catch (e) {
+      this.logger.warn(`audit log write failed: ${(e as Error).message}`);
+    }
+  }
+
   async findAll(options: {
     skip?: number;
     take?: number;

@@ -10,16 +10,26 @@ class ApiError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT = 30_000;
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = useAuth.getState().token;
-  const res = await fetch(`/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   let body: unknown = null;
   try {

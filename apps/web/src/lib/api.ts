@@ -4,21 +4,31 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 function authHeaders(): HeadersInit {
   if (typeof window === 'undefined') return {};
-  const token = window.localStorage.getItem('qp_token');
+  let token: string | null = null;
+  try { token = window.localStorage.getItem('qp_token'); } catch { /* private browsing */ }
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+const REQUEST_TIMEOUT = 30_000;
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders(),
-      ...init?.headers,
-    },
-  });
-  if (!res.ok) throw new Error(`api_${res.status}: ${await res.text()}`);
-  return res.json() as Promise<T>;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  try {
+    const res = await fetch(`${BASE}/api${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+        ...init?.headers,
+      },
+    });
+    if (!res.ok) throw new Error(`api_${res.status}: ${await res.text()}`);
+    return res.json() as Promise<T>;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const api = {
@@ -37,9 +47,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  upload: async (uploadUrl: string, file: File) => {
-    const res = await fetch(uploadUrl, { method: 'PUT', body: file });
-    if (!res.ok) throw new Error(`upload_failed_${res.status}`);
+  upload: async (uploadUrl: string, file: File, signal?: AbortSignal) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 300_000);
+    try {
+      const res = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        signal: signal ?? controller.signal,
+      });
+      if (!res.ok) throw new Error(`upload_failed_${res.status}`);
+    } finally {
+      clearTimeout(timer);
+    }
   },
   createJob: (dto: CreatePrintJobDto) =>
     http<{ id: string; priceTotalPaise: number; pages: number }>('/print-jobs', {
@@ -51,6 +71,11 @@ export const api = {
     http<{ orderId: string; amountPaise: number; keyId: string }>('/payments/orders', {
       method: 'POST',
       body: JSON.stringify({ jobId }),
+    }),
+  createBatchOrder: (jobIds: string[]) =>
+    http<{ orderId: string; amountPaise: number; keyId: string; jobIds: string[] }>('/payments/batch-order', {
+      method: 'POST',
+      body: JSON.stringify({ jobIds }),
     }),
   confirmPayment: (body: {
     orderId: string;
