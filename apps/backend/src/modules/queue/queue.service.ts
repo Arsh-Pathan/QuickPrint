@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { FilesService } from '../files/files.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -18,7 +19,7 @@ export class QueueService {
   ) {}
 
   async enqueue(jobId: string, shopId: string, priority = 0) {
-    const entry = await this.prisma.$transaction(async (tx) => {
+    const entry = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const count = await tx.queueEntry.count({ where: { shopId } });
       const position = count + 1;
       return tx.queueEntry.upsert({
@@ -87,7 +88,7 @@ export class QueueService {
   }
 
   async cancel(jobId: string) {
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.queueEntry.delete({ where: { jobId } }).catch(() => null);
       await tx.printJob.update({
         where: { id: jobId },

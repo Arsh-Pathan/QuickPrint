@@ -1,5 +1,6 @@
 import { BadRequestException, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { RazorpayService } from './razorpay.service';
 import { PrintJobsService } from '../print-jobs/print-jobs.service';
 import { QueueService } from '../queue/queue.service';
@@ -74,7 +75,7 @@ export class PaymentsService {
       throw new BadRequestException('some_jobs_invalid_or_not_payable');
     }
 
-    const totalPaise = jobs.reduce((sum, j) => sum + j.priceTotalPaise, 0);
+    const totalPaise = jobs.reduce((sum: number, j) => sum + j.priceTotalPaise, 0);
     const receipt = `batch_${jobIds[0]!.slice(0, 8)}_${Date.now()}`;
     const order = await this.rzp.createOrder(totalPaise, receipt);
 
@@ -107,7 +108,7 @@ export class PaymentsService {
 
     const captured: string[] = [];
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       for (const payment of payments) {
         if (payment.status === 'CAPTURED') continue;
         const updated = await tx.payment.updateMany({
@@ -160,7 +161,7 @@ export class PaymentsService {
 
     const captured: string[] = [];
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const payments = await tx.payment.findMany({
         where: { razorpayOrderId: p!.order_id },
       });
@@ -176,7 +177,7 @@ export class PaymentsService {
             razorpayPaymentId: p!.id,
             status: 'CAPTURED',
             capturedAt: new Date(),
-            rawWebhookPayload: p as unknown as object,
+            rawWebhookPayload: JSON.stringify(p) as any,
           },
         });
         if (updated.count > 0) captured.push(payment.jobId);
@@ -212,7 +213,7 @@ export class PaymentsService {
         data: {
           razorpayPaymentId: p.id ?? payment.razorpayPaymentId,
           status: 'FAILED',
-          rawWebhookPayload: p as unknown as object,
+          rawWebhookPayload: JSON.stringify(p) as any,
         },
       });
       this.audit.record({
@@ -242,7 +243,7 @@ export class PaymentsService {
       if (payment.status === 'REFUNDED') continue;
       await this.prisma.payment.update({
         where: { id: payment.id },
-        data: { status: 'REFUNDED', rawWebhookPayload: r as unknown as object },
+        data: { status: 'REFUNDED', rawWebhookPayload: JSON.stringify(r) as any },
       });
       const job = await this.prisma.printJob.findUnique({ where: { id: payment.jobId } });
       if (job && (job.status === 'QUEUED' || job.status === 'PAID' || job.status === 'CREATED')) {

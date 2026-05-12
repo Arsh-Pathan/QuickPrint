@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { PricingService } from '../pricing/pricing.service';
 import { FilesService } from '../files/files.service';
 import { QueueService } from '../queue/queue.service';
@@ -12,7 +13,7 @@ export class PrintJobsService {
   private readonly defaultShopId = process.env.SHOP_ID ?? 'shop_local_dev';
 
   // Normalize DB status to lowercase for frontend
-  private normalize(job: any) {
+  private normalize(job: Prisma.PrintJobGetPayload<{}>) {
     return { ...job, status: job.status?.toLowerCase() ?? job.status };
   }
 
@@ -54,7 +55,7 @@ export class PrintJobsService {
         paperSize: dto.settings.paperSize?.toUpperCase() as any,
         pageRange: dto.settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
-        priceBreakdown: JSON.stringify(breakdown),
+        priceBreakdown: JSON.stringify(breakdown) as any,
         printerId: dto.printerId,
       },
     });
@@ -84,7 +85,7 @@ export class PrintJobsService {
         paperSize: settings.paperSize?.toUpperCase() as any,
         pageRange: settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
-        priceBreakdown: JSON.stringify(breakdown),
+        priceBreakdown: JSON.stringify(breakdown) as any,
       },
     });
 

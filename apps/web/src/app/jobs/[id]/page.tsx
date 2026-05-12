@@ -91,13 +91,10 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   );
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-[#f8f9fa] px-4 py-8 sm:px-6 sm:py-12">
+    <main className="flex min-h-screen flex-col items-center bg-m3-surface pt-12 pb-24 px-4 sm:px-6">
       <div className="flex w-full max-w-md flex-col items-center">
-        <header className="mb-8 flex flex-col items-center gap-3">
-          <Link href="/" className="transition-transform hover:scale-105">
-            <Image src="/logo.svg" alt="QuickPrint" width={160} height={70} className="h-12 w-auto object-contain" />
-          </Link>
-          <h1 className="text-[20px] font-normal text-[#202124]">Print Status</h1>
+        <header className="mb-10 flex flex-col items-center text-center">
+          <h1 className="m3-display-s text-m3-ink mb-3">Print Status</h1>
           <ConnectionPill connected={live.connected} />
         </header>
 
@@ -105,7 +102,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
         <Timeline status={live.status} />
 
         {/* Status card */}
-        <div className="google-card mt-6 w-full !p-0 overflow-hidden" style={{ animation: 'scaleIn 0.3s ease-out' }}>
+        <div className="m3-card mt-8 w-full !p-0 overflow-hidden shadow-elev-2 animate-scale-in">
           <div className={`h-1.5 w-full ${ui.barColor}`} />
 
           <div className="p-8 sm:p-10">
@@ -113,34 +110,32 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
               <div className={`mb-5 flex h-20 w-20 items-center justify-center rounded-full ${ui.bgColor}`}>
                 {ui.icon}
               </div>
-              <h2 className="text-[22px] font-medium text-[#202124]">{ui.title}</h2>
-              <p className="mt-1.5 text-[14px] text-[#5f6368]">{ui.subtitle}</p>
+              <h2 className="m3-headline-m text-m3-ink">{ui.title}</h2>
+              <p className="mt-2 text-[15px] text-m3-ink-muted">{ui.subtitle}</p>
             </div>
 
             {/* Queue position chip */}
-            {live.status === 'queued' && live.position && live.total && (
-              <div className="mt-6 flex items-center justify-center">
-                <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700">
+              <div className="mt-8 flex items-center justify-center">
+                <div className="inline-flex items-center gap-2 rounded-full bg-m3-primary-container/30 px-5 py-2.5 text-sm font-bold text-m3-primary border border-m3-primary/10">
                   <span className="tabular-nums">#{live.position}</span>
-                  <span className="text-brand-400">of</span>
+                  <span className="text-m3-primary/40 text-[10px] uppercase tracking-widest px-1">of</span>
                   <span className="tabular-nums">{live.total}</span>
-                  <span className="text-brand-400">in queue</span>
+                  <span className="text-m3-primary/40 text-[10px] uppercase tracking-widest px-1">in queue</span>
                 </div>
               </div>
-            )}
 
             {/* Now-printing progress */}
             {live.status === 'printing' && live.pagesTotal ? (
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-2 text-xs text-[#5f6368]">
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-2 text-[11px] font-bold uppercase tracking-widest text-m3-ink-faint">
                   <span>Page {live.pagesPrinted ?? 0} of {live.pagesTotal}</span>
                   <span className="tabular-nums">
                     {Math.round(((live.pagesPrinted ?? 0) / live.pagesTotal) * 100)}%
                   </span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f1f3f4]">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-m3-surface-container-high">
                   <div
-                    className="h-full bg-brand-500 transition-all duration-500"
+                    className="h-full bg-m3-primary transition-all duration-700 ease-out shadow-[0_0_8px_rgba(var(--m3-primary-rgb),0.4)]"
                     style={{ width: `${((live.pagesPrinted ?? 0) / live.pagesTotal) * 100}%` }}
                   />
                 </div>
@@ -148,20 +143,20 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
             ) : null}
 
             {/* Details */}
-            <div className="mt-8 space-y-3 border-t border-[#dadce0] pt-6">
-              <DetailRow icon={<FileText className="h-4 w-4" />} label="Document">
-                <span className="font-medium text-[#202124] truncate max-w-[180px]">
+            <div className="mt-10 space-y-4 border-t border-m3-outline-variant pt-8">
+              <DetailRow icon={<FileText size={16} />} label="Document">
+                <span className="font-bold text-m3-ink truncate max-w-[180px]">
                   {jobName || '…'}
                 </span>
               </DetailRow>
-              <DetailRow icon={<Hash className="h-4 w-4" />} label="Reference">
-                <span className="font-mono text-xs font-medium text-[#70757a] bg-[#f1f3f4] px-2.5 py-1 rounded-full">
+              <DetailRow icon={<Hash size={16} />} label="Reference">
+                <span className="font-display text-[11px] font-black tracking-widest text-m3-ink-muted bg-m3-surface-container px-3 py-1.5 rounded-lg border border-m3-outline-variant">
                   {id.slice(0, 8).toUpperCase()}
                 </span>
               </DetailRow>
               {live.eta !== undefined && (live.status === 'queued' || live.status === 'paid') && (
-                <DetailRow icon={<Clock className="h-4 w-4" />} label="Estimated wait">
-                  <span className="font-bold text-brand-600 px-3 py-1 bg-brand-50 rounded-full text-xs tabular-nums">
+                <DetailRow icon={<Clock size={16} />} label="Wait Time">
+                  <span className="font-bold text-m3-primary px-3 py-1.5 bg-m3-primary-container/40 rounded-lg text-xs tabular-nums border border-m3-primary/10">
                     ≈ {Math.max(1, Math.ceil(live.eta / 60))} min
                   </span>
                 </DetailRow>
@@ -170,8 +165,8 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
             {/* Completion banner */}
             {live.status === 'completed' && (
-              <div className="mt-6 rounded-xl bg-emerald-50 p-4 text-center border border-emerald-100">
-                <p className="text-sm font-medium text-emerald-800">
+              <div className="mt-8 rounded-2xl bg-m3-green-container/20 p-5 text-center border border-m3-green/20 animate-pulse">
+                <p className="text-sm font-bold text-m3-green-container" style={{ color: '#00210b' }}>
                   ✨ Collect your prints at the counter
                 </p>
               </div>
@@ -183,10 +178,10 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 href={`https://wa.me/${user.phone.replace(/^\+/, '')}?text=${waMessage}`}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] hover:bg-[#f8f9fa] transition-colors"
+                className="mt-8 m3-btn-outlined w-full h-14"
               >
-                <MessageCircle className="h-4 w-4 text-emerald-600" />
-                Send status to my WhatsApp
+                <MessageCircle size={18} className="text-m3-green" />
+                WhatsApp status updates
               </a>
             )}
 
@@ -194,9 +189,9 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
             {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default' && (
               <button
                 onClick={() => ensureNotificationPermission()}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#f8f9fa] px-4 py-2 text-xs font-medium text-[#5f6368] hover:bg-[#f1f3f4] transition-colors"
+                className="mt-4 m3-btn-text w-full h-12 text-m3-ink-muted"
               >
-                <BellRing className="h-3.5 w-3.5" />
+                <BellRing size={16} />
                 Enable phone notifications
               </button>
             )}
@@ -205,15 +200,13 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
         <Link
           href="/"
-          className="mt-8 inline-flex items-center gap-1.5 text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors rounded-full hover:bg-brand-50 px-4 py-2"
+          className="mt-10 m3-btn-text text-m3-primary"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to home
+          <ArrowLeft size={18} /> Back to home
         </Link>
 
-        <footer className="mt-16 flex flex-col items-center gap-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#bdc1c6]">
-            Automation by AI &amp; ML Club
-          </p>
+        <footer className="mt-20">
+          <p className="m3-section-eyebrow">Automation by AI &amp; ML Club</p>
         </footer>
       </div>
     </main>
@@ -231,7 +224,7 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="flex items-center gap-2 text-[#5f6368]">
+      <span className="flex items-center gap-3 text-m3-ink-muted">
         {icon}
         {label}
       </span>
@@ -243,13 +236,13 @@ function DetailRow({
 function ConnectionPill({ connected }: { connected: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all duration-500 ${
-        connected ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f1f3f4] text-[#5f6368]'
+      className={`m3-pill border border-m3-outline-variant px-3 py-1.5 transition-all duration-500 ${
+        connected ? 'bg-m3-green-container/20 text-m3-green' : 'bg-m3-surface-container text-m3-ink-muted'
       }`}
     >
-      <span className={`relative flex h-2 w-2 ${connected ? '' : 'opacity-40'}`}>
-        <span className={`absolute inline-flex h-full w-full rounded-full ${connected ? 'bg-emerald-400 animate-ping' : ''} opacity-75`}></span>
-        <span className={`relative inline-flex h-2 w-2 rounded-full ${connected ? 'bg-emerald-500' : 'bg-[#bdc1c6]'}`}></span>
+      <span className={`relative flex h-2 w-2 mr-1.5 ${connected ? '' : 'opacity-40'}`}>
+        <span className={`absolute inline-flex h-full w-full rounded-full ${connected ? 'bg-m3-green animate-ping' : ''} opacity-75`}></span>
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${connected ? 'bg-m3-green' : 'bg-m3-outline'}`}></span>
       </span>
       {connected ? 'Connected' : 'Offline'}
     </span>
@@ -271,7 +264,7 @@ function Timeline({ status }: { status: PrintJobStatus }) {
 
   if (finished) {
     return (
-      <div className="w-full rounded-full bg-red-50 px-4 py-2 text-center text-xs font-medium text-[#d93025]">
+      <div className="w-full rounded-2xl bg-m3-red-container/20 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-m3-red border border-m3-red/20">
         {labels[status]}
       </div>
     );
@@ -284,15 +277,15 @@ function Timeline({ status }: { status: PrintJobStatus }) {
         return (
           <div key={s} className="flex flex-1 items-center">
             <div
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold transition-colors ${
-                active ? 'bg-brand-500 text-white' : 'bg-[#f1f3f4] text-[#9aa0a6]'
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-all duration-300 ${
+                active ? 'bg-m3-primary text-white shadow-elev-1' : 'bg-m3-surface-container-high text-m3-ink-faint'
               }`}
               title={labels[s]}
             >
               {i + 1}
             </div>
             {i < PIPELINE.length - 1 && (
-              <div className={`h-0.5 flex-1 transition-colors ${i < idx ? 'bg-brand-500' : 'bg-[#dadce0]'}`} />
+              <div className={`h-1 flex-1 transition-all duration-500 ${i < idx ? 'bg-m3-primary' : 'bg-m3-outline-variant'}`} />
             )}
           </div>
         );
@@ -318,50 +311,50 @@ const STATUS_UI: Record<
   created: {
     title: 'Awaiting Payment',
     subtitle: 'Complete payment to start printing',
-    icon: <Clock className="h-10 w-10 text-[#9aa0a6]" />,
-    bgColor: 'bg-[#f1f3f4]',
-    barColor: 'bg-[#dadce0]',
+    icon: <Clock size={40} className="text-m3-ink-faint" />,
+    bgColor: 'bg-m3-surface-container',
+    barColor: 'bg-m3-outline-variant',
   },
   paid: {
     title: 'Payment Confirmed',
     subtitle: 'Adding to the print queue…',
-    icon: <Loader2 className="h-10 w-10 animate-spin text-brand-500" />,
-    bgColor: 'bg-brand-50',
-    barColor: 'bg-brand-400',
+    icon: <Loader2 size={40} className="animate-spin text-m3-primary" />,
+    bgColor: 'bg-m3-primary-container/20',
+    barColor: 'bg-m3-primary/40',
   },
   queued: {
     title: 'In Queue',
     subtitle: 'Waiting for a free printer',
-    icon: <Clock className="h-10 w-10 text-brand-500" />,
-    bgColor: 'bg-brand-50',
-    barColor: 'bg-brand-500',
+    icon: <Clock size={40} className="text-m3-primary" />,
+    bgColor: 'bg-m3-primary-container/20',
+    barColor: 'bg-m3-primary',
   },
   printing: {
     title: 'Printing Now',
     subtitle: 'Your document is on the printer',
-    icon: <Printer className="h-10 w-10 text-brand-600" />,
-    bgColor: 'bg-brand-50',
-    barColor: 'bg-brand-600',
+    icon: <Printer size={40} className="text-m3-primary" />,
+    bgColor: 'bg-m3-primary-container/20',
+    barColor: 'bg-m3-primary',
   },
   completed: {
     title: 'Ready for Pickup',
     subtitle: 'Your prints are waiting at the counter',
-    icon: <CheckCircle2 className="h-10 w-10 text-emerald-500" />,
-    bgColor: 'bg-emerald-50',
-    barColor: 'bg-emerald-500',
+    icon: <CheckCircle2 size={40} className="text-m3-green" />,
+    bgColor: 'bg-m3-green-container/20',
+    barColor: 'bg-m3-green',
   },
   failed: {
     title: 'Print Failed',
     subtitle: 'Refund has been initiated automatically',
-    icon: <XCircle className="h-10 w-10 text-[#d93025]" />,
-    bgColor: 'bg-red-50',
-    barColor: 'bg-[#d93025]',
+    icon: <XCircle size={40} className="text-m3-red" />,
+    bgColor: 'bg-m3-red-container/20',
+    barColor: 'bg-m3-red',
   },
   cancelled: {
     title: 'Job Cancelled',
     subtitle: 'This print job was cancelled',
-    icon: <XCircle className="h-10 w-10 text-[#bdc1c6]" />,
-    bgColor: 'bg-[#f1f3f4]',
-    barColor: 'bg-[#bdc1c6]',
+    icon: <XCircle size={40} className="text-m3-ink-faint" />,
+    bgColor: 'bg-m3-surface-container',
+    barColor: 'bg-m3-outline-variant',
   },
 };

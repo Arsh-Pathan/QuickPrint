@@ -337,21 +337,18 @@ export default function UploadPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-[#f8f9fa] px-4 py-8 sm:px-6 sm:py-12">
+    <main className="flex min-h-screen flex-col items-center bg-m3-surface pt-12 pb-24 px-4 sm:px-6">
       <div className="flex w-full max-w-4xl flex-col items-center">
-        <header className="mb-8 flex flex-col items-center gap-3">
-          <Link href="/" className="transition-transform hover:scale-105">
-            <Image src="/logo.svg" alt="QuickPrint" width={160} height={70} className="h-12 w-auto object-contain" />
-          </Link>
-          <h1 className="text-[22px] font-normal text-[#202124]">Upload documents</h1>
-          <p className="text-sm text-[#5f6368]">Supported: PDF, PNG, JPG, WEBP</p>
+        <header className="mb-12 flex flex-col items-center text-center">
+          <h1 className="m3-display-s text-m3-ink mb-2">Upload documents</h1>
+          <p className="text-sm text-m3-ink-muted">Supported: PDF, PNG, JPG, WEBP</p>
         </header>
 
         {cart.length === 0 && step === 'choose' ? (
           <div className="w-full max-w-md" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
             <label
-              className={`google-card group flex w-full cursor-pointer flex-col items-center justify-center border-2 border-dashed p-16 transition-all duration-300 ${
-                dragActive ? 'border-brand-500 bg-brand-50 shadow-md' : 'border-[#dadce0] hover:border-[#bdc1c6]'
+              className={`m3-card group flex w-full cursor-pointer flex-col items-center justify-center border-2 border-dashed p-16 transition-all duration-300 ${
+                dragActive ? 'border-m3-primary bg-m3-primary-container/30 shadow-elev-2' : 'border-m3-outline-variant hover:border-m3-outline'
               }`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
@@ -367,32 +364,32 @@ export default function UploadPage() {
                   if (e.target.files?.length) addFiles(e.target.files);
                 }}
               />
-              <div className={`flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${
+              <div className={`flex h-20 w-20 items-center justify-center rounded-2xl transition-all duration-300 ${
                 dragActive
-                  ? 'bg-brand-100 text-brand-600 scale-110'
-                  : 'bg-brand-50 text-brand-500 group-hover:bg-brand-100 group-hover:scale-105'
+                  ? 'bg-m3-primary text-white scale-110 shadow-elev-3'
+                  : 'bg-m3-primary-container text-m3-on-primary-container group-hover:bg-m3-primary group-hover:text-white group-hover:scale-105'
               }`}>
-                <CloudUpload className="h-8 w-8" />
+                <CloudUpload size={32} />
               </div>
-              <p className="mt-5 text-[15px] font-medium text-[#202124]">
+              <p className="mt-6 m3-headline-s text-m3-ink">
                 {dragActive ? 'Drop your files here' : 'Click to upload'}
               </p>
-              <p className="mt-1.5 text-[13px] text-[#70757a]">or drag and drop — add multiple files</p>
+              <p className="mt-2 text-sm text-m3-ink-muted">or drag and drop — add multiple files</p>
             </label>
 
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <div className="google-card flex items-center gap-4 !p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">B&amp;W</div>
+            <div className="mt-8 grid grid-cols-2 gap-4">
+              <div className="m3-card flex items-center gap-4 !p-4 border-m3-outline-variant">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-m3-surface-container text-[11px] font-bold text-m3-ink-muted">B&amp;W</div>
                 <div>
-                  <p className="text-sm font-medium text-[#202124]">₹2.00</p>
-                  <p className="text-[11px] text-[#70757a]">per page</p>
+                  <p className="text-sm font-bold text-m3-ink">₹2.00</p>
+                  <p className="text-[11px] text-m3-ink-faint">per page</p>
                 </div>
               </div>
-              <div className="google-card flex items-center gap-4 !p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600">Color</div>
+              <div className="m3-card flex items-center gap-4 !p-4 border-m3-outline-variant">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-m3-primary-container text-[11px] font-bold text-m3-primary">Color</div>
                 <div>
-                  <p className="text-sm font-medium text-[#202124]">₹10.00</p>
-                  <p className="text-[11px] text-[#70757a]">per page</p>
+                  <p className="text-sm font-bold text-m3-ink">₹10.00</p>
+                  <p className="text-[11px] text-m3-ink-faint">per page</p>
                 </div>
               </div>
             </div>
@@ -405,13 +402,13 @@ export default function UploadPage() {
                 <button
                   onClick={() => { setCart([]); setStep('choose'); }}
                   disabled={phase === 'paying'}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-[#5f6368] hover:text-[#202124] transition-colors rounded-full hover:bg-[#f1f3f4] px-3 py-1.5 -ml-3 disabled:opacity-50"
+                  className="m3-btn-text -ml-3 text-m3-ink-muted hover:text-m3-ink disabled:opacity-50"
                 >
                   <ChevronLeft className="h-4 w-4" /> New files
                 </button>
 
-                <label className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors rounded-full hover:bg-brand-50 px-3 py-1.5 disabled:opacity-50">
-                  <Plus className="h-4 w-4" /> Add more
+                <label className="m3-btn-text text-m3-primary cursor-pointer disabled:opacity-50">
+                  <Plus size={16} /> Add more
                   <input
                     type="file"
                     className="hidden"
@@ -440,13 +437,13 @@ export default function UploadPage() {
               </div>
 
               {activePreview && (
-                <div className="google-card overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-[#dadce0] px-5 py-4">
+                <div className="m3-card overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-m3-outline-variant px-5 py-4 bg-m3-surface-container-low">
                     <div>
-                      <h3 className="text-[15px] font-medium text-[#202124]">Live preview</h3>
-                      <p className="text-xs text-[#5f6368]">{activePreview.file.name}</p>
+                      <h3 className="m3-headline-s text-[15px] text-m3-ink">Live preview</h3>
+                      <p className="text-xs text-m3-ink-muted">{activePreview.file.name}</p>
                     </div>
-                    <span className="rounded-full bg-[#f1f3f4] px-3 py-1 text-[11px] font-medium text-[#5f6368]">
+                    <span className="m3-chip m3-chip-active">
                       {paperSize}
                     </span>
                   </div>
@@ -457,7 +454,7 @@ export default function UploadPage() {
                       duplex={duplex}
                       paperSize={paperSize}
                     />
-                    <p className="text-[11px] text-[#70757a]">
+                    <p className="text-[11px] text-m3-ink-faint">
                       Preview reflects the uploaded document. Color, paper size, and duplex are the print settings applied to checkout.
                     </p>
                   </div>
@@ -467,54 +464,54 @@ export default function UploadPage() {
 
             {/* Right: settings + actions */}
             <div className="w-full lg:w-[400px]">
-              <div className="google-card flex flex-col gap-6">
-                <div className="flex items-center gap-3 border-b border-[#dadce0] pb-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50">
-                    <Settings2 className="h-4 w-4 text-brand-500" />
+              <div className="m3-card flex flex-col gap-6 !p-6">
+                <div className="flex items-center gap-3 border-b border-m3-outline-variant pb-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-m3-primary-container/30">
+                    <Settings2 size={18} className="text-m3-primary" />
                   </div>
-                  <h2 className="text-[16px] font-medium text-[#202124]">Print Settings</h2>
+                  <h2 className="m3-headline-s text-m3-ink">Settings</h2>
                   {cart.length > 0 && (
-                    <span className="ml-auto text-xs text-[#9aa0a6] tabular-nums">{cart.length} file{cart.length !== 1 ? 's' : ''}</span>
+                    <span className="ml-auto text-[11px] font-bold uppercase tracking-widest text-m3-ink-faint tabular-nums">{cart.length} file{cart.length !== 1 ? 's' : ''}</span>
                   )}
                 </div>
 
                 <div className="space-y-5">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-[#3c4043]">Copies</label>
+                    <label className="text-sm font-medium text-m3-ink">Copies</label>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setCopies(Math.max(1, copies - 1))} disabled={phase !== 'idle'} className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors text-[#5f6368] hover:text-[#202124] disabled:opacity-50">−</button>
-                      <span className="w-8 text-center font-semibold text-sm tabular-nums">{copies}</span>
-                      <button onClick={() => setCopies(copies + 1)} disabled={phase !== 'idle'} className="flex h-8 w-8 items-center justify-center rounded-full border border-[#dadce0] hover:bg-[#f8f9fa] transition-colors text-[#5f6368] hover:text-[#202124] disabled:opacity-50">+</button>
+                      <button onClick={() => setCopies(Math.max(1, copies - 1))} disabled={phase !== 'idle'} className="flex h-8 w-8 items-center justify-center rounded-full border border-m3-outline-variant hover:bg-m3-surface-container-high transition-colors text-m3-ink-muted hover:text-m3-ink disabled:opacity-50">−</button>
+                      <span className="w-8 text-center font-bold text-sm tabular-nums">{copies}</span>
+                      <button onClick={() => setCopies(copies + 1)} disabled={phase !== 'idle'} className="flex h-8 w-8 items-center justify-center rounded-full border border-m3-outline-variant hover:bg-m3-surface-container-high transition-colors text-m3-ink-muted hover:text-m3-ink disabled:opacity-50">+</button>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-[#3c4043]">Color</label>
-                    <div className="flex gap-1 p-1 bg-[#f1f3f4] rounded-full">
-                      <button onClick={() => setColor(false)} disabled={phase !== 'idle'} className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:opacity-50 ${!color ? 'bg-white shadow-sm text-[#202124]' : 'text-[#5f6368] hover:text-[#202124]'}`}>B&amp;W</button>
-                      <button onClick={() => setColor(true)} disabled={phase !== 'idle'} className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200 disabled:opacity-50 ${color ? 'bg-white shadow-sm text-brand-600' : 'text-[#5f6368] hover:text-[#202124]'}`}>Color</button>
+                    <label className="text-sm font-medium text-m3-ink">Color</label>
+                    <div className="flex gap-1 p-1 bg-m3-surface-container-high rounded-full">
+                      <button onClick={() => setColor(false)} disabled={phase !== 'idle'} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200 disabled:opacity-50 ${!color ? 'bg-white shadow-elev-1 text-m3-ink' : 'text-m3-ink-muted hover:text-m3-ink'}`}>B&amp;W</button>
+                      <button onClick={() => setColor(true)} disabled={phase !== 'idle'} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-all duration-200 disabled:opacity-50 ${color ? 'bg-white shadow-elev-1 text-m3-primary' : 'text-m3-ink-muted hover:text-m3-ink'}`}>Color</button>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-[#3c4043]">Double-sided</label>
-                    <button onClick={() => setDuplex(!duplex)} disabled={phase !== 'idle'} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-50 ${duplex ? 'bg-brand-500' : 'bg-[#bdc1c6]'}`}>
-                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-all duration-300 ease-in-out ${duplex ? 'translate-x-[22px]' : 'translate-x-[2px]'} mt-[2px]`} />
+                    <label className="text-sm font-medium text-m3-ink">Double-sided</label>
+                    <button onClick={() => setDuplex(!duplex)} disabled={phase !== 'idle'} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-50 ${duplex ? 'bg-m3-primary' : 'bg-m3-outline'}`}>
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-elev-1 ring-0 transition-all duration-300 ease-in-out ${duplex ? 'translate-x-[22px]' : 'translate-x-[2px]'} mt-[2px]`} />
                     </button>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-[#3c4043]">Paper size</label>
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-m3-ink">Paper size</label>
                     <div className="grid grid-cols-2 gap-2">
                       {[PaperSize.A4, PaperSize.A3, PaperSize.Letter, PaperSize.Legal].map((size) => (
                         <button
                           key={size}
                           onClick={() => setPaperSize(size)}
                           disabled={phase !== 'idle'}
-                          className={`rounded-2xl border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+                          className={`rounded-xl border px-3 py-2 text-sm font-medium transition-all disabled:opacity-50 ${
                             paperSize === size
-                              ? 'border-brand-500 bg-brand-50 text-brand-700'
-                              : 'border-[#dadce0] bg-white text-[#5f6368] hover:border-[#bdc1c6] hover:text-[#202124]'
+                              ? 'border-m3-primary bg-m3-primary-container/40 text-m3-primary'
+                              : 'border-m3-outline-variant bg-transparent text-m3-ink-muted hover:border-m3-outline hover:text-m3-ink'
                           }`}
                         >
                           {size}
@@ -529,21 +526,21 @@ export default function UploadPage() {
                     <button
                       onClick={processAll}
                       disabled={cart.length === 0}
-                      className="google-button-primary w-full !py-3 text-[15px] shadow-sm hover:shadow-md"
+                      className="m3-btn-filled w-full h-14 text-base shadow-elev-2 hover:shadow-elev-3"
                     >
                       Upload &amp; Analyze
                     </button>
                   )}
 
                   {phase === 'processing' && (
-                    <div className="flex flex-col gap-2 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-700">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 rounded-xl bg-m3-primary-container/30 p-4 text-sm text-m3-primary">
+                      <div className="flex items-center gap-2 font-medium">
                         <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                         Analyzing documents…
                       </div>
                       <button
                         onClick={() => { abortRef.current?.abort(); toast.push('Cancelled', 'info'); }}
-                        className="self-start text-xs font-medium text-brand-600 hover:text-brand-800 transition-colors"
+                        className="self-start text-xs font-bold uppercase tracking-wider text-m3-primary hover:brightness-90"
                       >
                         Cancel
                       </button>
@@ -551,16 +548,16 @@ export default function UploadPage() {
                   )}
 
                   {phase === 'syncing' && (
-                    <div className="flex items-center gap-2 rounded-lg bg-brand-50 px-4 py-3 text-sm text-brand-700">
+                    <div className="flex items-center gap-2 rounded-xl bg-m3-primary-container/30 p-4 text-sm text-m3-primary font-medium">
                       <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      Updating prices for the latest print settings…
+                      Updating prices…
                     </div>
                   )}
 
                   {hasError && phase === 'idle' && (
                     <button
                       onClick={processAll}
-                      className="google-button-secondary w-full !py-3 text-[15px]"
+                      className="m3-btn-outlined w-full h-14"
                     >
                       Retry failed files
                     </button>
@@ -571,29 +568,29 @@ export default function UploadPage() {
                       {settingsDirty && phase === 'idle' && (
                         <button
                           onClick={syncReadyJobs}
-                          className="google-button-secondary w-full !py-3 text-[15px]"
+                          className="m3-btn-outlined w-full h-14"
                         >
                           Update quote for new settings
                         </button>
                       )}
 
-                      <div className="flex items-end justify-between">
-                        <span className="text-sm text-[#5f6368]">Total</span>
+                      <div className="flex items-end justify-between py-2">
+                        <span className="text-sm font-medium text-m3-ink-muted">Total</span>
                         <div className="text-right">
-                          <p className="text-3xl font-bold text-[#202124] tabular-nums">₹{(totalPaise / 100).toFixed(2)}</p>
-                          <p className="text-[11px] text-[#70757a] mt-0.5">{cart.length} file{cart.length !== 1 ? 's' : ''}</p>
+                          <p className="m3-headline-l text-m3-ink tabular-nums leading-none">₹{(totalPaise / 100).toFixed(2)}</p>
+                          <p className="text-[11px] font-bold uppercase tracking-widest text-m3-ink-faint mt-1.5">{cart.length} file{cart.length !== 1 ? 's' : ''}</p>
                         </div>
                       </div>
 
                       <button
                         onClick={payAll}
                         disabled={phase !== 'idle' || !allReady || settingsDirty}
-                        className="google-button-primary w-full !py-3 text-[15px] shadow-sm hover:shadow-md"
+                        className="m3-btn-filled w-full h-16 text-lg shadow-elev-3 hover:shadow-elev-4"
                       >
                         {phase === 'paying' ? (
-                          <span className="inline-flex items-center gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Opening payment…</span>
+                          <span className="inline-flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /> Opening payment…</span>
                         ) : (
-                          <><CreditCard className="h-5 w-5" /> Pay &amp; Print All</>
+                          <><CreditCard size={20} /> Pay &amp; Print All</>
                         )}
                       </button>
 
@@ -605,8 +602,8 @@ export default function UploadPage() {
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-[#d93025]">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
+                  <div className="flex items-center gap-3 rounded-xl bg-m3-red-container p-4 text-sm text-m3-red font-medium">
+                    <AlertCircle size={18} className="shrink-0" />
                     {error}
                   </div>
                 )}
@@ -615,8 +612,8 @@ export default function UploadPage() {
           </div>
         )}
 
-        <footer className="mt-20 flex flex-col items-center gap-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#bdc1c6]">Automation by AI &amp; ML Club</p>
+        <footer className="mt-20">
+          <p className="m3-section-eyebrow">Automation by AI &amp; ML Club</p>
         </footer>
       </div>
     </main>
@@ -651,11 +648,11 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
         return <div className="h-5 w-5 rounded-full border-2 border-[#dadce0]" />;
       case 'uploading':
       case 'analyzing':
-        return <Loader2 className="h-5 w-5 animate-spin text-brand-500" />;
+        return <Loader2 className="h-5 w-5 animate-spin text-m3-primary" />;
       case 'ready':
-        return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+        return <CheckCircle2 className="h-5 w-5 text-m3-green" />;
       case 'error':
-        return <AlertCircle className="h-5 w-5 text-[#d93025]" />;
+        return <AlertCircle className="h-5 w-5 text-m3-red" />;
     }
   };
 
@@ -670,26 +667,26 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
           onSelect();
         }
       }}
-      className={`google-card !p-4 flex w-full items-center gap-3 text-left transition-all duration-200 ${
-        item.status === 'error' ? 'border-red-200 bg-red-50/30' : ''
-      } ${selected ? 'ring-2 ring-brand-200' : ''}`}
+      className={`m3-card !p-4 flex w-full items-center gap-3 text-left transition-all duration-200 border-m3-outline-variant ${
+        item.status === 'error' ? 'border-m3-red bg-m3-red-container/10' : ''
+      } ${selected ? 'ring-2 ring-m3-primary/30 border-m3-primary' : ''}`}
     >
-      <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1f3f4] text-xs font-bold text-[#5f6368]">
-        <FileText className="h-4 w-4" />
+      <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded-lg bg-m3-surface-container text-[11px] font-bold text-m3-ink-muted shadow-sm">
+        <FileText size={18} />
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[#202124] truncate">{item.file.name}</p>
-        <p className="text-[11px] text-[#5f6368]">
+        <p className="text-sm font-bold text-m3-ink truncate">{item.file.name}</p>
+        <p className="text-[11px] text-m3-ink-muted">
           {(item.file.size / 1024 / 1024).toFixed(1)} MB
           {item.pages ? ` · ${item.pages} pages` : ''}
-          {item.status === 'ready' && item.appliedSettingsKey !== settingsKey ? ' · quote needs update' : ''}
+          {item.status === 'ready' && item.appliedSettingsKey !== settingsKey ? ' · update quote' : ''}
           {item.status === 'error' && item.error ? ` · ${item.error}` : ''}
         </p>
       </div>
 
       <div className="text-right shrink-0">
-        <p className="text-sm font-semibold text-[#202124] tabular-nums">
+        <p className="text-sm font-bold text-m3-ink tabular-nums">
           ₹{(price / 100).toFixed(2)}
         </p>
       </div>
@@ -703,9 +700,9 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
               e.stopPropagation();
               onRemove();
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[#9aa0a6] hover:bg-red-50 hover:text-red-500 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-m3-ink-faint hover:bg-m3-red-container hover:text-m3-red transition-colors"
           >
-            <X className="h-3.5 w-3.5" />
+            <X size={14} />
           </button>
         )}
       </div>

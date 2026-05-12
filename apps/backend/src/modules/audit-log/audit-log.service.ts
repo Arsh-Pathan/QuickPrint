@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuditLogService {
@@ -22,8 +23,8 @@ export class AuditLogService {
           action: opts.action,
           entityType: opts.entityType,
           entityId: opts.entityId,
-          before: opts.before != null ? JSON.stringify(opts.before) : null,
-          after: opts.after != null ? JSON.stringify(opts.after) : null,
+          before: (opts.before ? JSON.stringify(opts.before) : null) as any,
+          after: (opts.after ? JSON.stringify(opts.after) : null) as any,
         },
       });
     } catch (e) {

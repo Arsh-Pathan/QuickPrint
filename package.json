@@ -17,11 +17,11 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
-    "db:migrate": "npm --workspace apps/backend run prisma:migrate",
-    "db:generate": "npm --workspace apps/backend run prisma:generate",
+    "db:migrate": "npm --workspace apps/backend run prisma:migrate:sqlite",
+    "db:generate": "npm --workspace apps/backend run prisma:generate:sqlite",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "package": "npm run rebuild && npm run build && npx prisma generate --schema=apps/backend/prisma/schema.sqlite.prisma && electron-builder",
+    "package": "npm run rebuild && npm run build && npm run db:generate && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {

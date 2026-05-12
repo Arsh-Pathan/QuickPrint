@@ -1,8 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-
-type Status = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'PAPER_OUT' | 'TONER_LOW' | 'JAM' | 'ERROR';
+type PrinterStatus = 'ONLINE' | 'OFFLINE' | 'BUSY' | 'PAPER_OUT' | 'TONER_LOW' | 'JAM' | 'ERROR';
 const VALID_STATUSES = new Set(['ONLINE', 'OFFLINE', 'BUSY', 'PAPER_OUT', 'TONER_LOW', 'JAM', 'ERROR']);
+const PrinterStatus = {
+  ONLINE: 'ONLINE' as const,
+  OFFLINE: 'OFFLINE' as const,
+  BUSY: 'BUSY' as const,
+  PAPER_OUT: 'PAPER_OUT' as const,
+  TONER_LOW: 'TONER_LOW' as const,
+  JAM: 'JAM' as const,
+  ERROR: 'ERROR' as const,
+};
 
 @Injectable()
 export class PrintersService {
@@ -18,7 +26,7 @@ export class PrintersService {
   }
 
   recordHealth(printerId: string, snapshot: {
-    status: Status;
+    status: PrinterStatus;
     paperLevel?: number;
     tonerLevel?: number;
     message?: string;
@@ -48,9 +56,9 @@ export class PrintersService {
       this.logger.warn(`shop upsert failed for ${shopId}: ${(e as Error).message}`);
     }
 
-    const statusMap = (raw: unknown): string => {
+    const statusMap = (raw: unknown): PrinterStatus => {
       const s = String(raw).toUpperCase();
-      return VALID_STATUSES.has(s) ? s : 'ONLINE';
+      return VALID_STATUSES.has(s) ? (s as PrinterStatus) : PrinterStatus.ONLINE;
     };
 
     for (const p of printers) {

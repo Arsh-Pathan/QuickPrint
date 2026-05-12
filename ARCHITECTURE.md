@@ -1,327 +1,146 @@
-# QuickPrint Architecture
+# 🏗️ QuickPrint Architecture
 
-This document describes the current architecture implemented in the repository. It is grounded in the code that exists now.
+QuickPrint is an autonomous, self-contained print-shop management system designed for high availability and zero-touch operation in a college campus environment.
 
-## 1. System Overview
+---
 
-```text
-Student Web (Next.js) ----\
-                           \
-Admin Web (Next.js) --------> Backend API + Realtime Gateway (NestJS + Prisma)
-                           /
-Print Agent (Electron) ----/
+## 🎯 Project Philosophy
 
-Backend persistence:
-- PostgreSQL for core data
-- local disk or S3-compatible storage for uploaded files
+- **Reliability over Breadth**: Every paid job MUST be printed. The system is designed to survive crashes, power outages, and network failures.
+- **Single-Shop Focus**: Architecture is optimized for a single physical location with local printer hardware.
+- **Zero-Config Deployment**: The entire stack is bundled into a single executable that requires minimal technical knowledge to install.
 
-Print execution:
-- Electron print agent
-- Windows printer environment
-```
+---
 
-The backend is the source of truth. The web apps and the print agent are clients of the same REST and Socket.IO surface.
+## 🗺️ System Overview
 
-## 2. Monorepo Layout
+The system operates primarily on a local "Shop PC" but bridges to the cloud for student access and payments.
 
 ```text
-apps/
-  backend/
-  web/
-  admin/
-  print-agent/
-packages/
-  shared/
-docs/
++-----------------------------------------------------------------------+
+|                         ☁️ CLOUD / EXTERNAL                          |
+|  +------------+      +------------+      +------------+    +-------+  |
+|  | Cloudflare |      |  Razorpay  |      |  S3/Local  |    | MSG91 |  |
+|  |   Tunnel   |      |    API     |      |   Storage  |    | (WA)  |  |
+|  +-----+------+      +-----+------+      +-----+------+    +---+---+  |
++--------|-------------------|-------------------|---------------|------+
+         |                   |                   |               |
++--------|-------------------|-------------------|---------------|------+
+|        |              🖥️ SHOP PC (DESKTOP)    |               |      |
+|        |                   |                   |               |      |
+|  +-----+------+            |                   |               |      |
+|  |  Student   |<-----------|-------------------+---------------+      |
+|  |  Web App   |            |                                          |
+|  +-----+------+            |            +--------------------------+  |
+|        ^                   |            |      🚀 BACKEND          |  |
+|        |                   +----------->|   (NestJS + Prisma)      |  |
+|        v                                +------------+-------------+  |
+|  +-----+------+                                      |                |
+|  |   Admin    |<-------------------------------------+                |
+|  | Dashboard  |                                      |                |
+|  +------------+                        +-------------v-------------+  |
+|                                        |      🗄️ DATABASE          |  |
+|  +------------+       +------------+   |  (Postgres / SQLite)      |  |
+|  | Launcher   |------>|   PRINT    |<--+---------------------------+  |
+|  | / Monitor  |       |   AGENT    |                                  |
+|  +------------+       +-----+------+                                  |
+|                             |          +--------------------------+   |
+|                             +--------->| 📦 DURABLE SQLITE QUEUE  |   |
+|                             |          +--------------------------+   |
+|                             |          +--------------------------+   |
+|                             +--------->| 🖨️ WINDOWS PRINTERS      |   |
+|                                        +--------------------------+   |
++-----------------------------------------------------------------------+
 ```
 
-## 3. Current Applications
+---
 
-### `apps/backend`
+## 📦 Core Components
 
-NestJS application with these active modules:
+### 1. ⚙️ Backend Service (`apps/backend`)
+*The "Brain" of the operation.*
+- **Stack**: NestJS 10, Prisma ORM, Socket.IO.
+- **Key Modules**: 
+    - `Payments`: Handles Razorpay webhooks and verification.
+    - `Print-Jobs`: Manages the lifecycle and state machine of every job.
+    - `Files`: Orchestrates file uploads to S3 or local storage.
+    - `Realtime`: Broadcasts status updates to students and print commands to the agent.
+- **Persistence**: Switches between PostgreSQL (Dev) and SQLite (Prod) seamlessly via shared Prisma schemas.
 
-- `auth`
-- `users`
-- `files`
-- `pricing`
-- `print-jobs`
-- `payments`
-- `printers`
-- `queue`
-- `realtime`
-- `agent`
+### 2. 🖨️ Print Agent (`apps/desktop-app/src/main`)
+*The "Hands" of the operation.*
+- **Responsibility**: The agent is an autonomous background service that communicates with physical hardware.
+- **Durable Queue**: Uses a local `better-sqlite3` database to ensure that even if the backend is down, the agent remembers its task list.
+- **Hardware Integration**: Uses `pdf-to-printer` to interact directly with the Windows Spooler.
+- **Resilience**: Implements exponential backoff for print failures and automatic Socket.IO reconnection.
 
-Additional backend pieces:
+### 3. 📱 Student Web App (`apps/web`)
+*The "Customer Portal".*
+- **Stack**: Next.js 15 (App Router).
+- **Design**: Mobile-first, "3-click" philosophy:
+    1. **Upload**: Select PDF/Document.
+    2. **Pay**: Seamless UPI/Razorpay integration.
+    3. **Done**: Live progress tracking via WebSockets.
 
-- `prisma`: database access and schema
-- `health.controller.ts`: `/api/healthz` and `/api/readyz`
+### 4. 🛠️ Admin Dashboard (`apps/admin`)
+*The "Cockpit".*
+- **Stack**: Next.js 15.
+- **Capabilities**: Real-time queue monitoring, manual job reprinting, printer status management, and shop settings (pricing, hours, notifications).
 
-Important behavior:
+---
 
-- JWT auth for student and admin flows
-- signed upload and download URLs
-- file SHA-256 hashing
-- PDF page counting and best-effort color-page detection
-- payment confirmation and queueing
-- realtime job and printer status events
+## 🔄 Print Job Lifecycle
 
-### `apps/web`
-
-Student-facing Next.js 15 app using the App Router.
-
-Implemented routes:
-
-- `/`
-- `/login`
-- `/upload`
-- `/jobs/[id]`
-- `/terms`
-- `/privacy`
-- `/contact`
-- `not-found`
-
-Current student flow:
-
-1. login by OTP or guest access
-2. upload file
-3. create print job with settings
-4. create Razorpay order
-5. confirm payment
-6. watch job status live
-
-### `apps/admin`
-
-Admin-facing Next.js 15 app using the App Router.
-
-Implemented routes:
-
-- `/`
-- `/login`
-- `/printers`
-- `/queue`
-- `/analytics`
-- `/settings`
-- `not-found`
-
-Current state:
-
-- overview page is live and fetches recent jobs and shop stats
-- printers page is live
-- queue page is live and supports job cancellation
-- analytics and settings are currently placeholder pages
-
-### `apps/print-agent`
-
-Electron desktop app for the shop PC.
-
-Implemented responsibilities:
-
-- printer discovery through `pdf-to-printer`
-- health polling for discovered printers
-- authenticated Socket.IO connection to backend
-- durable local SQLite queue
-- download via signed URL
-- SHA-256 file integrity verification
-- print dispatch through `pdf-to-printer`
-- retry with exponential backoff
-
-## 4. Shared Package
-
-`packages/shared` contains shared code used across workspaces:
-
-- enums
-- Zod schemas and DTO types for print jobs
-- pricing logic
-- WebSocket event contracts
-
-## 5. Data Flow
-
-### Student Upload and Print Flow
+The following sequence ensures data integrity from student upload to physical paper output.
 
 ```text
-student login
--> request signed upload URL
--> upload file
--> create print job
--> backend analyzes file
--> backend stores page count, colorPages, fileHash
--> create payment order
--> payment confirmation
--> backend marks job queued
--> backend assigns job to agent
--> agent downloads file
--> agent verifies fileHash
--> agent prints
--> backend updates final status
+Student (Web)         Backend (NestJS)         Print Agent          Printer
+      |                      |                      |                  |
+      |--- 1. Upload File -->|                      |                  |
+      |                      |-- Status: PENDING    |                  |
+      |                      |                      |                  |
+      |--- 2. Pay (Razorpay)-|                      |                  |
+      |                      |-- Status: PAID       |                  |
+      |                      |                      |                  |
+      |                      |-- 3. 'new-job' (WS)->|                  |
+      |                      |                      |-- 4. Store in Q  |
+      |                      |<---- 5. Ack ---------|                  |
+      |                      |                      |                  |
+      |                      |<--- 6. Download File-|                  |
+      |                      |                      |-- 7. Send to Prn-|
+      |                      |<--- 8. PRINTING -----|                  |
+      |                      |                      |       (Printing) |
+      |                      |<--- 9. COMPLETED ----|<-- Job Finished -|
+      |<-- 10. Status Upd ---|                      |                  |
+      |                      |                      |                  |
 ```
 
-### Admin Monitoring Flow
+---
 
-```text
-admin login
--> fetch stats, printers, queue, recent jobs
--> subscribe to shop room over WebSocket
--> receive printer and queue-related updates
-```
+## 🛡️ Resilience & Invariants
 
-## 6. Backend API Surface
+To maintain "QuickPrint Reliability", the following invariants are enforced:
 
-Current controller groups:
+1. **Durable Storage**: Once a job is marked `PAID`, it is written to the primary DB. Once received by the Agent, it is written to the local SQLite queue.
+2. **Crash Recovery**: The `Launcher` process monitors the health of the Backend, Admin, and Web processes. If any crash, they are restarted within seconds.
+3. **Network Isolation**: The Agent can continue printing jobs already in its local queue even if the internet connection is lost.
+4. **No Lost Files**: Files are only deleted from storage after the Agent confirms successful printing.
 
-- `/api/auth`
-- `/api/users`
-- `/api/files`
-- `/api/print-jobs`
-- `/api/payments`
-- `/api/printers`
-- `/api/queue`
-- `/api/healthz`
-- `/api/readyz`
-- `/api/docs`
+---
 
-Important endpoints:
+## 🔒 Security & Auth
 
-- `POST /api/auth/otp/request`
-- `POST /api/auth/otp/verify`
-- `POST /api/auth/anonymous`
-- `POST /api/auth/admin/login`
-- `POST /api/files/sign-upload`
-- `PUT /api/files/local-upload`
-- `GET /api/files/local-download`
-- `POST /api/print-jobs`
-- `GET /api/print-jobs`
-- `GET /api/print-jobs/:id`
-- `GET /api/print-jobs/admin/list`
-- `GET /api/print-jobs/admin/stats`
-- `POST /api/payments/orders`
-- `POST /api/payments/confirm`
-- `POST /api/payments/webhook`
-- `GET /api/printers`
-- `GET /api/queue`
-- `DELETE /api/queue/:jobId`
+- **API Security**: Global prefix `/api`, protected by JWT for Admin and Agent.
+- **Agent Auth**: Authenticates using a unique `AGENT_TOKEN` generated by the backend.
+- **Public Access**: The student web app is exposed via a secure Cloudflare Tunnel, removing the need for port forwarding or complex network setup.
 
-## 7. Current Upload Support
+---
 
-The backend currently allows these MIME types:
+## 💾 Database Strategy
 
-- `application/pdf`
-- `image/png`
-- `image/jpeg`
-- `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+The system uses two parallel Prisma schemas to support different environments without code changes:
 
-Current upload size cap:
+- **`schema.prisma`**: Targets PostgreSQL for high-velocity development and testing.
+- **`schema.sqlite.prisma`**: Targets SQLite for zero-dependency production installs.
 
-- `50 MB`
-
-## 8. Realtime Contract
-
-Defined in `packages/shared/src/ws-events.ts`.
-
-Current server-to-client events:
-
-- `job:status`
-- `job:progress`
-- `printer:status`
-- `queue:paused`
-- `queue:resumed`
-- `queue:position`
-- `agent:job-assigned`
-
-Current client-to-server events:
-
-- `agent:heartbeat`
-- `agent:job-claimed`
-- `agent:job-result`
-- `agent:printer-event`
-- `subscribe:job`
-- `subscribe:shop`
-
-## 9. Print Job State
-
-Current job statuses in the schema:
-
-- `CREATED`
-- `PAID`
-- `QUEUED`
-- `PRINTING`
-- `COMPLETED`
-- `FAILED`
-- `CANCELLED`
-
-Common transition path:
-
-```text
-CREATED -> QUEUED -> PRINTING -> COMPLETED
-                     PRINTING -> FAILED
-QUEUED -> CANCELLED
-```
-
-Payment confirmation is what drives a newly created job into the queued state.
-
-## 10. Persistence Model
-
-Defined in `apps/backend/prisma/schema.prisma`.
-
-Core tables:
-
-- `User`
-- `Shop`
-- `Printer`
-- `PrinterHealthSnapshot`
-- `PrintJob`
-- `Payment`
-- `QueueEntry`
-- `Notification`
-- `AuditLog`
-- `SystemEvent`
-
-Important `PrintJob` fields:
-
-- file metadata: `fileKey`, `fileName`, `fileSize`, `mimeType`, `fileHash`
-- analysis metadata: `pages`, `colorPages`
-- user-selected settings: `color`, `duplex`, `copies`, `paperSize`, `pageRange`
-- money and lifecycle: `priceTotalPaise`, `priceBreakdown`, `status`, `paidAt`, `printedAt`
-
-## 11. Security and Integrity
-
-Currently implemented:
-
-- JWT-protected student and admin endpoints
-- role checks for admin and agent routes
-- signed upload and download URLs
-- SHA-256 file hashing on backend
-- SHA-256 verification in the print agent after download
-- webhook signature verification for Razorpay (rejects in production when secret is unset, dev pass-through preserved with warning)
-- request validation with `class-validator`
-- throttling with NestJS throttler
-- agent WebSocket authentication via HMAC-SHA256 token (`HMAC(shopId, AGENT_TOKEN_SECRET)`); fail-closed in production
-- Razorpay webhook handlers for `payment.captured`, `payment.failed`, `refund.created`, `refund.processed`, all idempotent
-- production env validation at backend boot (`assertProdEnv`) — refuses to start with missing or placeholder secrets
-
-See [`docs/CRITICAL_FIXES_AND_SCENARIOS.md`](docs/CRITICAL_FIXES_AND_SCENARIOS.md) for the threat scenarios these mitigations cover.
-
-## 12. Deployment and Runtime
-
-Local defaults:
-
-- backend: `4000`
-- web: `3000`
-- admin: `3001`
-- postgres: `5432`
-
-`docker-compose.yml` currently provisions:
-
-- `postgres`
-- `backend`
-- `web`
-- `admin`
-- `cloudflared`
-
-## 13. Important Current Constraints
-
-- pricing is session-based: the user selects B&W or color for the whole job
-- `colorPages` is computed as metadata, not mixed per-page billing
-- analytics and settings pages in admin are not feature-complete yet
-- there is schema support for notifications and audit/system events, but no standalone notification module is active in the current backend app module
-- **single-shop deployment**: one backend / admin / agent instance per shop. `SHOP_ID` (backend), `NEXT_PUBLIC_SHOP_ID` (admin build), and `AGENT_SHOP_ID` (agent) must all match. Future single-host bundle with first-run setup wizard and Cloudflare tunnel is captured in [`docs/CRITICAL_FIXES_AND_SCENARIOS.md`](docs/CRITICAL_FIXES_AND_SCENARIOS.md) §4.
+*Note: Any change to the data model must be reflected in both files.*

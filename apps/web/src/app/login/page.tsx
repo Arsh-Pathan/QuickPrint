@@ -2,11 +2,11 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Printer, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { Logo } from '@/components/Logo';
 
 function LoginForm() {
   const router = useRouter();
@@ -19,11 +19,13 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Already signed in? Redirect immediately — never render the form
-  if (token && user) {
-    router.replace(next);
-    return null;
-  }
+  useEffect(() => {
+    if (token && user) {
+      router.replace(next);
+    }
+  }, [token, user, router, next]);
+
+  if (token && user) return null;
 
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault();
@@ -38,109 +40,114 @@ function LoginForm() {
       setAuth(user, token);
       router.push(next);
     } catch (err: any) {
-      const msg = err.message?.includes('invalid_phone')
-        ? 'Please enter a valid phone number (digits only, optionally with +).'
-        : err.message || 'Failed to continue';
-      setError(msg);
+      setError(err.message || 'Failed to continue');
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex w-full max-w-[440px] flex-col items-center">
-      <div
-        className="w-full rounded-2xl border border-[#dadce0] bg-white px-10 py-12 shadow-sm"
-        style={{ animation: 'scaleIn 0.3s ease-out' }}
-      >
-        <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <Image src="/logo.svg" alt="QuickPrint" width={240} height={105} className="h-16 w-auto object-contain" />
-          <div>
-            <h1 className="text-[24px] font-normal text-[#202124]">Welcome</h1>
-            <p className="mt-1 text-[15px] text-[#202124]">Print at the campus shop in seconds</p>
+    <div className="flex min-h-[calc(100vh-64px)] w-full flex-col md:flex-row">
+      {/* Left Panel: Branding & Illustration */}
+      <div className="hidden md:flex flex-1 flex-col justify-center bg-m3-primary-container/30 p-16 overflow-hidden relative">
+        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-m3-primary/10 blur-3xl" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-m3-green/10 blur-3xl" />
+        
+        <div className="relative z-10 max-w-md">
+          <Logo size="lg" className="mb-12" />
+          <h2 className="m3-display-m mb-6 text-m3-ink tracking-tight">
+            The student-first way to print.
+          </h2>
+          <div className="space-y-6">
+            {[
+              'Instant processing — no account creation.',
+              'Real-time WhatsApp updates on status.',
+              'Secure UPI payments at your fingertips.',
+            ].map((text, i) => (
+              <div key={i} className="flex items-center gap-3 text-m3-on-surface-variant font-medium">
+                <CheckCircle2 size={20} className="text-m3-primary" />
+                <span>{text}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        <form onSubmit={handleContinue} className="space-y-5">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder=" "
-              className="peer google-input !rounded-lg !py-4 !px-4 !text-[16px]"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={loading}
-              maxLength={80}
-              id="name-input"
-              autoFocus
-            />
-            <label
-              htmlFor="name-input"
-              className="absolute left-3 top-4 px-1 text-[#5f6368] transition-all duration-200 bg-white pointer-events-none peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-brand-500 peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:text-xs"
-            >
-              Your name (optional)
-            </label>
-          </div>
-
-          <div className="relative">
-            <input
-              type="tel"
-              inputMode="tel"
-              placeholder=" "
-              className="peer google-input !rounded-lg !py-4 !px-4 !text-[16px]"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={loading}
-              maxLength={16}
-              id="phone-input"
-            />
-            <label
-              htmlFor="phone-input"
-              className="absolute left-3 top-4 px-1 text-[#5f6368] transition-all duration-200 bg-white pointer-events-none peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-2.5 peer-focus:text-xs peer-focus:text-brand-500 peer-[:not(:placeholder-shown)]:-top-2.5 peer-[:not(:placeholder-shown)]:text-xs"
-            >
-              Phone for WhatsApp updates (optional)
-            </label>
-          </div>
-
-          <p className="text-[13px] text-[#5f6368] leading-relaxed">
-            No signup. Name is used at the counter; phone is only for a one-tap WhatsApp link when your prints are ready.
-          </p>
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-[#d93025]">
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {error}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-4">
-            <Link href="/" className="text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors">
-              Back to home
-            </Link>
-            <button type="submit" disabled={loading} className="google-button-primary">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continue'}
-            </button>
-          </div>
-        </form>
+        {/* Abstract printer/paper mark */}
+        <div className="absolute bottom-20 right-20 opacity-20 rotate-12 select-none">
+           <Printer size={300} strokeWidth={0.5} className="text-m3-primary" />
+        </div>
       </div>
 
-      <div className="mt-8 flex flex-col items-center gap-4">
-        <div className="mt-2 flex gap-6 text-[13px] text-[#70757a]">
-          <Link href="/terms" className="hover:underline underline-offset-4">
-            Terms
-          </Link>
-          <Link href="/privacy" className="hover:underline underline-offset-4">
-            Privacy
-          </Link>
+      {/* Right Panel: Form */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-m3-surface">
+        <div className="w-full max-w-[400px] animate-scale-in">
+          <div className="mb-10">
+            <Link href="/" className="m3-btn-text -ml-4 mb-8">
+              <ArrowLeft size={18} />
+              Back
+            </Link>
+            <h1 className="m3-display-s text-m3-ink mb-2">Welcome</h1>
+            <p className="text-m3-ink-muted">Enter your details to start printing</p>
+          </div>
+
+          <form onSubmit={handleContinue} className="space-y-6">
+            <div className="m3-field">
+              <input
+                type="text"
+                placeholder=" "
+                className="m3-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                maxLength={80}
+                id="name-input"
+                autoFocus
+              />
+              <label htmlFor="name-input">Your name (optional)</label>
+            </div>
+
+            <div className="m3-field">
+              <input
+                type="tel"
+                inputMode="tel"
+                placeholder=" "
+                className="m3-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={loading}
+                maxLength={16}
+                id="phone-input"
+              />
+              <label htmlFor="phone-input">Phone for WhatsApp (optional)</label>
+            </div>
+
+            <div className="m3-card-flat p-4 flex gap-3 items-start">
+               <div className="h-2 w-2 rounded-full bg-m3-primary mt-2 shrink-0" />
+               <p className="text-xs text-m3-ink-muted leading-relaxed">
+                 We use your phone number only to send a one-time WhatsApp message when your prints are ready at the counter.
+               </p>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-3 rounded-xl bg-m3-red-container p-4 text-sm text-m3-red animate-shake">
+                <div className="h-2 w-2 rounded-full bg-m3-red shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="m3-btn-filled w-full h-14 text-base shadow-elev-2 hover:shadow-elev-3 active:scale-[0.98]"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Continue'}
+            </button>
+          </form>
+
+          <div className="mt-12 pt-8 border-t border-m3-outline-variant flex flex-wrap justify-center gap-x-8 gap-y-4 text-[13px] text-m3-ink-faint">
+            <Link href="/terms" className="hover:text-m3-primary transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-m3-primary transition-colors">Privacy Policy</Link>
+          </div>
         </div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#bdc1c6]">
-          Automation by AI &amp; ML Club
-        </p>
       </div>
     </div>
   );
@@ -148,11 +155,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6">
+    <main className="min-h-screen bg-m3-surface">
       <Suspense
         fallback={
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
+          <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-m3-primary" />
           </div>
         }
       >

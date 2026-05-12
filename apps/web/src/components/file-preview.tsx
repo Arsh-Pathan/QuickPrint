@@ -23,8 +23,8 @@ export function FilePreview({ file, color, paperSize, duplex }: FilePreviewProps
 
   if (!previewUrl) {
     return (
-      <div className="flex aspect-[3/4] w-full items-center justify-center rounded-xl bg-[#f1f3f4]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#bdc1c6]" />
+      <div className="flex aspect-[3/4] w-full items-center justify-center rounded-xl bg-m3-surface-container">
+        <Loader2 className="h-8 w-8 animate-spin text-m3-outline" />
       </div>
     );
   }
@@ -55,8 +55,8 @@ export function FilePreview({ file, color, paperSize, duplex }: FilePreviewProps
 
   return (
     <PaperFrame color={color} duplex={duplex} paperSize={paperSize}>
-      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#f8f9fa] px-6 text-center text-[#5f6368]">
-        <FileText className="h-12 w-12" />
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-m3-surface-container-low px-6 text-center text-m3-ink-muted">
+        <FileText className="h-12 w-12 opacity-20" />
         <span className="text-sm font-medium">{file.name}</span>
       </div>
     </PaperFrame>
@@ -75,14 +75,14 @@ function PaperFrame({
   paperSize: string;
 }) {
   return (
-    <div className="flex w-full flex-col gap-3 py-4">
+    <div className="flex w-full flex-col gap-4 py-4">
       <div className="flex flex-wrap items-center gap-2 px-2">
         <PreviewChip label={paperSize} />
-        <PreviewChip label={color ? 'Color' : 'B&W'} />
+        <PreviewChip label={color ? 'Color' : 'B&W'} active />
         <PreviewChip label={duplex ? 'Double-sided' : 'Single-sided'} />
       </div>
       <div
-        className="relative w-full max-w-[380px] overflow-hidden rounded-sm bg-white shadow-[0_2px_8px_rgba(0,0,0,0.12),0_8px_32px_rgba(0,0,0,0.08)]"
+        className="relative w-full max-w-[380px] overflow-hidden rounded-sm bg-white shadow-elev-3 ring-1 ring-m3-outline-variant"
         style={{ aspectRatio: '1 / 1.414' }}
       >
         {children}
@@ -92,9 +92,11 @@ function PaperFrame({
   );
 }
 
-function PreviewChip({ label }: { label: string }) {
+function PreviewChip({ label, active }: { label: string; active?: boolean }) {
   return (
-    <span className="rounded-full bg-[#f1f3f4] px-3 py-1 text-[11px] font-medium text-[#5f6368]">
+    <span className={`m3-pill border border-m3-outline-variant px-3 py-1 text-[11px] font-bold uppercase tracking-widest ${
+      active ? 'bg-m3-primary-container text-m3-primary border-m3-primary/20' : 'text-m3-ink-faint'
+    }`}>
       {label}
     </span>
   );

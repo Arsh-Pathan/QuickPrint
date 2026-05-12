@@ -47,20 +47,22 @@ function Toast({ item }: { item: ToastItem }) {
     return () => cancelAnimationFrame(r);
   }, []);
   const styles = {
-    success: { bar: 'bg-emerald-500', icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" /> },
-    error: { bar: 'bg-[#d93025]', icon: <AlertCircle className="h-5 w-5 text-[#d93025]" /> },
-    info: { bar: 'bg-brand-500', icon: <Info className="h-5 w-5 text-brand-500" /> },
+    success: { bar: 'bg-m3-green', icon: <CheckCircle2 className="h-5 w-5 text-m3-green" /> },
+    error: { bar: 'bg-m3-red', icon: <AlertCircle className="h-5 w-5 text-m3-red" /> },
+    info: { bar: 'bg-m3-primary', icon: <Info className="h-5 w-5 text-m3-primary" /> },
   }[item.variant];
 
   return (
     <div
-      className={`pointer-events-auto flex items-center gap-3 overflow-hidden rounded-xl border border-[#dadce0] bg-white pl-0 pr-4 py-3 shadow-lg transition-all duration-300 ${
-        visible ? 'translate-y-0 opacity-100' : '-translate-y-3 opacity-0'
+      className={`pointer-events-auto flex items-center gap-3 overflow-hidden rounded-2xl border border-m3-outline-variant bg-m3-surface pl-0 pr-5 py-4 shadow-elev-4 transition-all duration-500 ease-out ${
+        visible ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-4 opacity-0 scale-95'
       }`}
     >
-      <span className={`h-full w-1 self-stretch ${styles.bar}`} />
-      {styles.icon}
-      <p className="text-sm font-medium text-[#202124] leading-snug">{item.message}</p>
+      <span className={`h-full w-1.5 self-stretch ${styles.bar}`} />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-m3-surface-container-high shadow-sm">
+        {styles.icon}
+      </div>
+      <p className="text-[14px] font-bold text-m3-ink leading-tight">{item.message}</p>
     </div>
   );
 }

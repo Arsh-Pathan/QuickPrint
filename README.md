@@ -1,101 +1,119 @@
 # 🖨️ QuickPrint
-**The Zero-Setup Standalone Print Management Suite**
 
-QuickPrint is a high-fidelity, monorepo-based ecosystem designed to transform any local shop PC into a smart document printing hub. It bridges the gap between student mobile devices and physical shop printers through automated Cloudflare tunneling and a robust Electron-based service orchestrator.
+[![Project Status: Active](https://img.shields.io/badge/Project%20Status-Active-brightgreen)](https://github.com/Arsh-Pathan/QuickPrint)
+[![Framework: Next.js 15](https://img.shields.io/badge/Framework-Next.js%2015-black)](https://nextjs.org/)
+[![Backend: NestJS 10](https://img.shields.io/badge/Backend-NestJS%2010-red)](https://nestjs.com/)
+[![Desktop: Electron](https://img.shields.io/badge/Desktop-Electron-blue)](https://www.electronjs.org/)
+
+**QuickPrint** is an autonomous print-shop management system designed specifically for college campus stationery shops. It automates the entire flow from document upload and payment to physical printing, allowing shop owners to focus on service rather than queues.
 
 ---
 
 ## ✨ Key Features
 
-### 🚀 Zero-Setup Deployment
-Say goodbye to complex server configurations. QuickPrint bundles its own tunneling engine (`cloudflared`) and manages its own internal servers. Install the `.exe`, and you're live.
-
-### 🎯 Targeted "Tray" Printing
-Each physical printer tray can have its own unique QR code. When a student scans it, the software automatically routes the job to that specific printer—no more manual tray selection by the shop owner.
-
-### 📄 High-Fidelity Paper Preview
-A "What-You-See-Is-What-You-Get" web interface that perfectly mimics A4 paper dimensions (210mm x 297mm), ensuring students know exactly how their prints will look.
-
-### 💸 Smart Pricing & Payments
-Built-in Razorpay integration with support for:
-- Per-page B&W vs Color pricing.
-- Automated Duplex (Double-sided) discounts.
-- Seamless UPI and Card payments.
+- **🚀 3-Click Print Flow**: Students upload, pay via UPI, and track their print status in real-time.
+- **🛡️ Rock-Solid Reliability**: Local agent with durable SQLite queuing ensures jobs are never lost.
+- **📦 All-in-One Installer**: Bundles the backend, student app, admin panel, and print agent into a single Windows application.
+- **📊 Admin Control**: Real-time queue monitoring, financial reporting, and shop configuration.
+- **🌐 Secure Remote Access**: Built-in Cloudflare Tunnel for secure student access without port forwarding.
 
 ---
 
-## 🏗️ Repository Architecture
-
-QuickPrint is an npm-workspaces monorepo designed for modularity and speed:
-
-- **`apps/desktop-app`**: The "Brain." An Electron orchestrator that manages the lifecycle of the backend, admin, web, and tunnel services.
-- **`apps/backend`**: NestJS Core. Handles business logic, SQLite persistence through Prisma, and WebSocket state synchronization.
-- **`apps/admin`**: Next.js Dashboard. Real-time queue management, printer configuration, and financial analytics.
-- **`apps/web`**: Next.js Mobile-First. The student interface for file uploads, previewing, and secure checkout.
-- **`packages/shared`**: Shared TypeScript contracts, pricing logic, and WebSocket protocols.
-
----
-
-## 🛠️ Technology Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 | :--- | :--- |
-| **Language** | TypeScript |
-| **Backend** | NestJS, Prisma, Socket.IO |
-| **Database** | SQLite (Standalone) / PostgreSQL (Cloud) |
-| **Frontend** | Next.js 15, React Query, Zustand, Tailwind CSS |
-| **Desktop** | Electron, pdf-to-printer, @electron/rebuild |
-| **Tunneling** | Cloudflare Tunnels (Bundled) |
-| **Payments** | Razorpay Integration |
+| **Backend** | NestJS 10, Prisma, Socket.IO |
+| **Student UI** | Next.js 15 (Mobile-first), Tailwind CSS |
+| **Admin UI** | Next.js 15, Lucide Icons |
+| **Desktop Shell** | Electron, NSIS Installer |
+| **Database** | PostgreSQL (Dev), SQLite (Prod) |
+| **Integrations** | Razorpay (Payments), MSG91 (WhatsApp), Cloudflare (Tunnel) |
 
 ---
 
-## 🚀 Getting Started (Development)
+## 🚀 Getting Started
 
-### 1. Prerequisites
-- Node.js v18+
-- Windows OS (for native printer support)
-- Docker Desktop (Optional, for Postgres testing)
+### Prerequisites
 
-### 2. Installation
-```powershell
-# Clone and install
-git clone ...
-npm.cmd install
+- **Node.js**: `v20.0.0` or higher
+- **npm**: `v10.0.0` or higher
+- **Docker**: For running PostgreSQL during development
+- **Windows**: Required for the Desktop App (Printer communication)
 
-# Generate database client
-npm.cmd run db:generate
+### Installation
+
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/Arsh-Pathan/QuickPrint.git
+   cd QuickPrint
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Initialize Environment**
+   ```bash
+   cp .env.example .env
+   # Update your .env with local credentials
+   ```
+
+4. **Start Development Database**
+   ```bash
+   npm run docker:up
+   npm run db:generate
+   npm run db:migrate
+   ```
+
+---
+
+## 💻 Development Commands
+
+| Command | Description |
+| :--- | :--- |
+| `npm run dev:backend` | Start NestJS API (Port 4000) |
+| `npm run dev:web` | Start Student Web App (Port 3000) |
+| `npm run dev:admin` | Start Admin Dashboard (Port 3001) |
+| `npm run dev:desktop` | Launch Electron Developer Environment |
+| `npm test` | Run Vitest suite across all workspaces |
+| `npm run lint` | Run ESLint and Prettier checks |
+| `npm run package` | Generate production Windows Installer (.exe) |
+
+---
+
+## 📂 Project Structure
+
+```text
+QuickPrint/
+├── apps/
+│   ├── backend/        # NestJS API & Prisma Schema
+│   ├── web/            # Student Next.js App
+│   ├── admin/          # Shop Owner Dashboard
+│   └── desktop-app/    # Electron Shell & Print Agent
+├── packages/
+│   └── shared/         # Zod DTOs, Enums, Pricing Engine
+├── package.json        # Workspace configuration
+└── CLAUDE.md           # Critical development invariants
 ```
 
-### 3. Local Development
-```powershell
-# Start everything in dev mode
-npm.cmd run dev:backend
-npm.cmd run dev:web
-npm.cmd run dev:admin
-npm.cmd run dev:desktop
-```
+---
+
+## 🏗️ Architecture
+
+For a deep dive into the system design, sequence diagrams, and resilience strategies, please refer to our **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
 
 ---
 
-## 📦 Production Building
+## 📜 Development Guidelines
 
-To generate a standalone Windows installer containing the entire ecosystem:
-
-```powershell
-# Full production build and package
-npm.cmd run package
-```
-*The output `.exe` will be located in the `dist/` folder.*
+- **Shared Logic**: Always put cross-app types and DTOs in `packages/shared`.
+- **Database**: When modifying models, update **both** `schema.prisma` and `schema.sqlite.prisma`.
+- **Print Agent**: Never modify `apps/desktop-app` without ensuring crash-recovery logic remains intact.
 
 ---
 
-## 🧭 Documentation Index
-- [📚 Project Overview](docs/PROJECT_OVERVIEW.md)
-- [⚙️ Local Setup Guide](docs/LOCAL_SETUP.md)
-- [🧪 Testing Strategies](docs/TESTING_GUIDE.md)
-- [🛡️ Audit & Security Fixes](docs/AUDIT_FIXES_2026-05-09.md)
-- [🧠 Context & History](context.md)
+## 📄 License
 
----
-*Built with ❤️ for local shop owners. Part of the Advanced Coding Initiative.*
+Proprietary - All Rights Reserved. Created for QuickPrint Team.
