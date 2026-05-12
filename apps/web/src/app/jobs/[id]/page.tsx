@@ -22,6 +22,7 @@ import { api } from '@/lib/api';
 import { useJobSocket } from '@/lib/use-job-socket';
 import { useAuth, usePrefs } from '@/lib/store';
 import { useToast } from '@/lib/toast';
+import { FilePreview } from '@/components/file-preview';
 import {
   ensureNotificationPermission,
   sendBrowserNotification,
@@ -39,6 +40,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const toast = useToast();
   const [jobName, setJobName] = useState<string>('');
   const [initialStatus, setInitialStatus] = useState<PrintJobStatus>('created');
+  const [jobDetails, setJobDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // Live socket state — drives everything below.
@@ -61,6 +63,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
     api.getJob(id).then((j: any) => {
       if (cancelled) return;
       setJobName(j.fileName);
+      setJobDetails(j);
       if (j.status) setInitialStatus(j.status as PrintJobStatus);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -132,18 +135,23 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
             {/* Now-printing progress */}
             {live.status === 'printing' && live.pagesTotal ? (
-              <div className="mt-8">
-                <div className="flex items-center justify-between mb-2 text-[11px] font-bold uppercase tracking-widest text-m3-ink-faint">
-                  <span>Page {live.pagesPrinted ?? 0} of {live.pagesTotal}</span>
+              <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center justify-between mb-3 text-[11px] font-bold uppercase tracking-widest text-m3-primary">
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={12} className="animate-spin" />
+                    Printing Page {live.pagesPrinted ?? 0} of {live.pagesTotal}
+                  </span>
                   <span className="tabular-nums">
                     {Math.round(((live.pagesPrinted ?? 0) / live.pagesTotal) * 100)}%
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-m3-surface-container-high">
+                <div className="h-3 w-full overflow-hidden rounded-full bg-m3-primary-container/30 border border-m3-primary/10">
                   <div
-                    className="h-full bg-m3-primary transition-all duration-700 ease-out shadow-[0_0_8px_rgba(var(--m3-primary-rgb),0.4)]"
+                    className="h-full bg-m3-primary transition-all duration-700 ease-out shadow-[0_0_12px_rgba(26,115,232,0.4)] relative"
                     style={{ width: `${((live.pagesPrinted ?? 0) / live.pagesTotal) * 100}%` }}
-                  />
+                  >
+                    <div className="absolute inset-0 shimmer-bar opacity-30" />
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -168,6 +176,22 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 </DetailRow>
               )}
             </div>
+
+            {/* Document Preview */}
+            {jobDetails && (
+              <div className="mt-8 border-t border-m3-outline-variant pt-8">
+                <h3 className="m3-section-eyebrow mb-4">Document Preview</h3>
+                <div className="rounded-xl overflow-hidden bg-m3-surface-container-low border border-m3-outline-variant p-2">
+                  <FilePreview
+                    url={jobDetails.previewUrl}
+                    mimeType={jobDetails.mimeType}
+                    color={jobDetails.color}
+                    duplex={jobDetails.duplex}
+                    paperSize={jobDetails.paperSize}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Completion banner */}
             {live.status === 'completed' && (
@@ -210,10 +234,6 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
         >
           <ArrowLeft size={18} /> Back to home
         </Link>
-
-        <footer className="mt-20">
-          <p className="m3-section-eyebrow">Automation by AI &amp; ML Club</p>
-        </footer>
           </>
         )}
       </div>

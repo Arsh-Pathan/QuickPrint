@@ -31,7 +31,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={{ push }}>
       {children}
-      <div className="pointer-events-none fixed top-4 left-1/2 z-[9999] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4">
+      <div className="pointer-events-none fixed bottom-6 right-6 z-[9999] flex flex-col-reverse gap-3 items-end">
         {items.map((t) => (
           <Toast key={t.id} item={t} />
         ))}
@@ -46,23 +46,43 @@ function Toast({ item }: { item: ToastItem }) {
     const r = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(r);
   }, []);
+
   const styles = {
-    success: { bar: 'bg-m3-green', icon: <CheckCircle2 className="h-5 w-5 text-m3-green" /> },
-    error: { bar: 'bg-m3-red', icon: <AlertCircle className="h-5 w-5 text-m3-red" /> },
-    info: { bar: 'bg-m3-primary', icon: <Info className="h-5 w-5 text-m3-primary" /> },
+    success: { 
+      icon: <CheckCircle2 size={18} />, 
+      color: 'text-m3-green', 
+      bg: 'bg-m3-green-container/20',
+      border: 'border-m3-green/20'
+    },
+    error: { 
+      icon: <AlertCircle size={18} />, 
+      color: 'text-m3-red', 
+      bg: 'bg-m3-red-container/20',
+      border: 'border-m3-red/20'
+    },
+    info: { 
+      icon: <Info size={18} />, 
+      color: 'text-m3-primary', 
+      bg: 'bg-m3-primary-container/20',
+      border: 'border-m3-primary/20'
+    },
   }[item.variant];
 
   return (
     <div
-      className={`pointer-events-auto flex items-center gap-3 overflow-hidden rounded-2xl border border-m3-outline-variant bg-m3-surface pl-0 pr-5 py-4 shadow-elev-4 transition-all duration-500 ease-out ${
-        visible ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-4 opacity-0 scale-95'
-      }`}
+      className={`pointer-events-auto flex items-center gap-3 overflow-hidden rounded-2xl border bg-m3-surface/80 backdrop-blur-xl px-4 py-3 shadow-elev-5 transition-all duration-500 cubic-bezier(0.175, 0.885, 0.32, 1.275) ${
+        visible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-12 opacity-0 scale-90'
+      } ${styles.border} min-w-[280px] max-w-sm`}
     >
-      <span className={`h-full w-1.5 self-stretch ${styles.bar}`} />
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-m3-surface-container-high shadow-sm">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${styles.bg} ${styles.color}`}>
         {styles.icon}
       </div>
-      <p className="text-[14px] font-bold text-m3-ink leading-tight">{item.message}</p>
+      <div className="flex-1">
+        <p className="text-[14px] font-bold text-m3-ink leading-tight">{item.message}</p>
+        <div className="mt-1 h-1 w-full bg-m3-outline-variant/30 rounded-full overflow-hidden">
+          <div className={`h-full ${styles.bg} brightness-75 animate-[shimmer_2s_infinite]`} style={{ width: '30%' }} />
+        </div>
+      </div>
     </div>
   );
 }

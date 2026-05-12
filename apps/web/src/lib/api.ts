@@ -71,7 +71,21 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(settings),
     }),
-  getJob: (id: string) => http<{ id: string; status: string }>(`/print-jobs/${id}`),
+  getJob: (id: string) =>
+    http<{
+      id: string;
+      status: string;
+      fileName: string;
+      fileKey: string;
+      mimeType: string;
+      pages: number;
+      color: boolean;
+      duplex: boolean;
+      copies: number;
+      paperSize: string;
+      priceTotalPaise: number;
+      previewUrl?: string;
+    }>(`/print-jobs/${id}`),
   createOrder: (jobId: string) =>
     http<{ orderId: string; amountPaise: number; keyId: string }>('/payments/orders', {
       method: 'POST',

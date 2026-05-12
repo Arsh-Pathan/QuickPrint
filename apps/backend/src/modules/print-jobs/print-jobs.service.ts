@@ -66,7 +66,12 @@ export class PrintJobsService {
     const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
     if (!job) throw new NotFoundException('job_not_found');
     if (job.ownerId !== userId) throw new ForbiddenException('not_owner');
-    return this.normalize(job);
+    
+    const previewUrl = await this.files.download(job.fileKey);
+    return {
+      ...this.normalize(job),
+      previewUrl,
+    };
   }
 
   async updateOwnedSettings(userId: string, jobId: string, settings: CreatePrintJobDto['settings']) {

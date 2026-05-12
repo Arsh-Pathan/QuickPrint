@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-24 sm:pt-24 sm:pb-32">
+      <section className="relative overflow-hidden pt-40 pb-24 sm:pt-56 sm:pb-32">
         <div className="absolute top-0 left-1/2 -z-10 h-[1000px] w-[1000px] -translate-x-1/2 [mask-image:radial-gradient(closest-side,white,transparent)] sm:top-[-100px]">
           <div className="absolute inset-0 bg-gradient-to-tr from-m3-primary-container/20 to-m3-surface-container blur-3xl opacity-50" />
         </div>

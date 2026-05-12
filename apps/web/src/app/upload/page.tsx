@@ -16,11 +16,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Plus,
+  ArrowLeft,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth, usePrefs } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { FilePreview } from '@/components/file-preview';
+import { Container } from '@/components/Container';
 import { calculatePrice, PaperSize, type PrintSettings } from '@quickprint/shared';
 import { loadRazorpay, preloadRazorpay } from '@/lib/razorpay';
 
@@ -110,9 +112,16 @@ export default function UploadPage() {
   useEffect(() => { preloadRazorpay(); }, []);
 
   useEffect(() => {
-    if (activePreviewId && cart.some((item) => item.id === activePreviewId)) return;
     setActivePreviewId(cart[0]?.id ?? null);
   }, [activePreviewId, cart]);
+  
+  // Auto-trigger processing when new files land in the cart
+  useEffect(() => {
+    const hasNew = cart.some(f => f.status === 'pending');
+    if (hasNew && phase === 'idle') {
+      processAll();
+    }
+  }, [cart, phase]);
 
   const allReady = cart.length > 0 && cart.every((f) => f.status === 'ready');
   const hasPending = cart.some((f) => f.status === 'pending' || f.status === 'uploading' || f.status === 'analyzing');
@@ -337,24 +346,29 @@ export default function UploadPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-m3-surface pt-12 pb-24 px-4 sm:px-6">
-      <div className="flex w-full max-w-4xl flex-col items-center">
+    <main className="flex min-h-screen flex-col bg-m3-surface pt-12 pb-24">
+      <Container size="sm">
+        <Link href="/" className="m3-btn-text -ml-4 mb-8">
+          <ArrowLeft size={18} />
+          Back to Home
+        </Link>
+        
         <header className="mb-12 flex flex-col items-center text-center">
           <h1 className="m3-display-s text-m3-ink mb-2">Upload documents</h1>
           <p className="text-sm text-m3-ink-muted">Supported: PDF, PNG, JPG, WEBP</p>
         </header>
-
-        {cart.length === 0 && step === 'choose' ? (
-          <div className="w-full max-w-md" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
-            <label
-              className={`m3-card group flex w-full cursor-pointer flex-col items-center justify-center border-2 border-dashed p-16 transition-all duration-300 ${
-                dragActive ? 'border-m3-primary bg-m3-primary-container/30 shadow-elev-2' : 'border-m3-outline-variant hover:border-m3-outline'
-              }`}
-              onDragEnter={handleDrag}
-              onDragLeave={handleDrag}
-              onDragOver={handleDrag}
-              onDrop={handleDrop}
-            >
+        <div className="flex flex-col items-center">
+          {cart.length === 0 && step === 'choose' ? (
+            <div className="w-full max-w-md" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
+              <label
+                className={`m3-card group flex w-full cursor-pointer flex-col items-center justify-center border-2 border-dashed p-16 transition-all duration-300 ${
+                  dragActive ? 'border-m3-primary bg-m3-primary-container/30 shadow-elev-2' : 'border-m3-outline-variant hover:border-m3-outline'
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
               <input
                 type="file"
                 className="hidden"
@@ -522,28 +536,13 @@ export default function UploadPage() {
                 </div>
 
                 <div className="pt-5 border-t border-[#dadce0] space-y-3">
-                  {phase === 'idle' && !allReady && !hasError && (
-                    <button
-                      onClick={processAll}
-                      disabled={cart.length === 0}
-                      className="m3-btn-filled w-full h-14 text-base shadow-elev-2 hover:shadow-elev-3"
-                    >
-                      Upload &amp; Analyze
-                    </button>
-                  )}
 
                   {phase === 'processing' && (
-                    <div className="flex flex-col gap-2 rounded-xl bg-m3-primary-container/30 p-4 text-sm text-m3-primary">
+                    <div className="flex flex-col gap-2 rounded-xl bg-m3-primary-container/30 p-4 text-sm text-m3-primary animate-pulse">
                       <div className="flex items-center gap-2 font-medium">
                         <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                        Analyzing documents…
+                        Preparing your files…
                       </div>
-                      <button
-                        onClick={() => { abortRef.current?.abort(); toast.push('Cancelled', 'info'); }}
-                        className="self-start text-xs font-bold uppercase tracking-wider text-m3-primary hover:brightness-90"
-                      >
-                        Cancel
-                      </button>
                     </div>
                   )}
 
@@ -563,7 +562,7 @@ export default function UploadPage() {
                     </button>
                   )}
 
-                  {allReady && (
+                  {(allReady || hasPending) && (
                     <>
                       {settingsDirty && phase === 'idle' && (
                         <button
@@ -574,29 +573,40 @@ export default function UploadPage() {
                         </button>
                       )}
 
-                      <div className="flex items-end justify-between py-2">
-                        <span className="text-sm font-medium text-m3-ink-muted">Total</span>
-                        <div className="text-right">
-                          <p className="m3-headline-l text-m3-ink tabular-nums leading-none">₹{(totalPaise / 100).toFixed(2)}</p>
-                          <p className="text-[11px] font-bold uppercase tracking-widest text-m3-ink-faint mt-1.5">{cart.length} file{cart.length !== 1 ? 's' : ''}</p>
+                      {hasPending && phase === 'idle' && (
+                        <div className="h-14 w-full rounded-xl bg-m3-surface-container flex items-center justify-center gap-3 text-m3-ink-muted text-sm font-medium animate-pulse">
+                          <Loader2 size={18} className="animate-spin" />
+                          Processing files...
                         </div>
-                      </div>
+                      )}
 
-                      <button
-                        onClick={payAll}
-                        disabled={phase !== 'idle' || !allReady || settingsDirty}
-                        className="m3-btn-filled w-full h-16 text-lg shadow-elev-3 hover:shadow-elev-4"
-                      >
-                        {phase === 'paying' ? (
-                          <span className="inline-flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /> Opening payment…</span>
-                        ) : (
-                          <><CreditCard size={20} /> Pay &amp; Print All</>
-                        )}
-                      </button>
+                      {(allReady && !hasPending) && (
+                        <>
+                          <div className="flex items-end justify-between py-2">
+                            <span className="text-sm font-medium text-m3-ink-muted">Total</span>
+                            <div className="text-right">
+                              <p className="m3-headline-l text-m3-ink tabular-nums leading-none">₹{(totalPaise / 100).toFixed(2)}</p>
+                              <p className="text-[11px] font-bold uppercase tracking-widest text-m3-ink-faint mt-1.5">{cart.length} file{cart.length !== 1 ? 's' : ''}</p>
+                            </div>
+                          </div>
 
-                      <p className="text-center text-[11px] text-[#70757a]">
-                        One payment for all files
-                      </p>
+                          <button
+                            onClick={payAll}
+                            disabled={phase !== 'idle' || !allReady || settingsDirty}
+                            className="m3-btn-filled w-full h-16 text-lg shadow-elev-3 hover:shadow-elev-4 active:scale-95"
+                          >
+                            {phase === 'paying' ? (
+                              <span className="inline-flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /> Opening payment…</span>
+                            ) : (
+                              <><CreditCard size={20} /> Pay &amp; Print All</>
+                            )}
+                          </button>
+
+                          <p className="text-center text-[11px] text-[#70757a]">
+                            One payment for all files
+                          </p>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -611,11 +621,8 @@ export default function UploadPage() {
             </div>
           </div>
         )}
-
-        <footer className="mt-20">
-          <p className="m3-section-eyebrow">Automation by AI &amp; ML Club</p>
-        </footer>
-      </div>
+        </div>
+      </Container>
     </main>
   );
 }
@@ -689,6 +696,11 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
         <p className="text-sm font-bold text-m3-ink tabular-nums">
           ₹{(price / 100).toFixed(2)}
         </p>
+        {item.pages && (
+          <p className="text-[10px] text-m3-ink-faint font-medium">
+            {item.pages} {item.pages === 1 ? 'page' : 'pages'} × ₹{( (color ? PRICING_CONFIG.colorPaise : PRICING_CONFIG.bwPaise) / 100).toFixed(2)}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
