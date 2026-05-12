@@ -4,17 +4,60 @@
 
 @layer base {
   :root {
-    --google-blue: #1a73e8;
-    --google-red: #ea4335;
-    --google-yellow: #fbbc05;
-    --google-green: #34a853;
-    --google-grey: #5f6368;
-    --google-border: #dadce0;
-    --google-bg: #f8f9fa;
-    --google-surface: #ffffff;
-    --google-text-primary: #202124;
-    --google-text-secondary: #5f6368;
-    --google-text-tertiary: #70757a;
+    /* Material 3 tonal palette — Google blue primary */
+    --m3-primary: #1a73e8;
+    --m3-primary-hover: #1967d2;
+    --m3-primary-pressed: #185abc;
+    --m3-on-primary: #ffffff;
+    --m3-primary-container: #d3e3fd;
+    --m3-on-primary-container: #001d35;
+
+    --m3-secondary: #5f6368;
+    --m3-on-secondary: #ffffff;
+    --m3-secondary-container: #e8eaed;
+    --m3-on-secondary-container: #1f1f1f;
+
+    /* Decorative accents — used sparingly */
+    --m3-red: #ea4335;
+    --m3-on-red: #ffffff;
+    --m3-red-container: #fce8e6;
+    --m3-yellow: #fbbc05;
+    --m3-yellow-container: #fef7e0;
+    --m3-green: #34a853;
+    --m3-green-container: #e6f4ea;
+
+    /* Surfaces */
+    --m3-surface: #ffffff;
+    --m3-surface-dim: #eef0f3;
+    --m3-surface-bright: #ffffff;
+    --m3-surface-container-lowest: #ffffff;
+    --m3-surface-container-low: #f7f9fc;
+    --m3-surface-container: #f1f3f4;
+    --m3-surface-container-high: #e8eaed;
+    --m3-surface-container-highest: #dde1e6;
+
+    --m3-on-surface: #1f1f1f;
+    --m3-on-surface-variant: #444746;
+    --m3-on-surface-muted: #5f6368;
+    --m3-on-surface-faint: #80868b;
+    --m3-outline: #c4c7c5;
+    --m3-outline-variant: #e1e3e1;
+
+    /* Elevation — layered soft shadows */
+    --elev-1: 0 1px 2px rgba(60, 64, 67, 0.06), 0 1px 3px rgba(60, 64, 67, 0.10);
+    --elev-2: 0 1px 2px rgba(60, 64, 67, 0.06), 0 2px 6px rgba(60, 64, 67, 0.12);
+    --elev-3: 0 4px 8px rgba(60, 64, 67, 0.08), 0 1px 3px rgba(60, 64, 67, 0.10);
+    --elev-4: 0 6px 10px rgba(60, 64, 67, 0.10), 0 2px 4px rgba(60, 64, 67, 0.08);
+    --elev-5: 0 8px 24px rgba(60, 64, 67, 0.14), 0 2px 6px rgba(60, 64, 67, 0.10);
+
+    /* Motion */
+    --m3-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --m3-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Fonts (filled in by next/font in layout.tsx) */
+    --font-display: 'Plus Jakarta Sans', 'Google Sans', system-ui, sans-serif;
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
   }
 
   * {
@@ -22,79 +65,264 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  body {
-    @apply bg-[#f8f9fa] text-[rgb(60,64,67)] antialiased;
-    font-family: 'Google Sans', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  html {
+    scroll-behavior: smooth;
   }
 
+  body {
+    background-color: var(--m3-surface);
+    color: var(--m3-on-surface);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+
+  ::selection {
+    background-color: var(--m3-primary-container);
+    color: var(--m3-on-primary-container);
+  }
+
+  /* Page entry */
   main {
-    animation: fadeIn 0.3s ease-out;
+    animation: m3FadeUp 0.42s var(--m3-emphasized);
+  }
+
+  @keyframes m3FadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes fadeIn {
     from { opacity: 0; }
-    to { opacity: 1; }
+    to   { opacity: 1; }
   }
 
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes m3Shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 }
 
 @layer components {
-  .google-card {
-    @apply rounded-xl border border-[#dadce0] bg-white p-6 shadow-none transition-all duration-200;
+  /* ============================================================
+     BUTTONS — Material 3 variants
+     ============================================================ */
+  .m3-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full h-10 px-6 text-sm font-medium
+           transition-all duration-200 select-none whitespace-nowrap
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none;
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    transition-timing-function: var(--m3-emphasized);
+  }
+  .m3-btn:focus-visible {
+    --tw-ring-color: var(--m3-primary);
   }
 
-  .google-card:hover {
-    box-shadow: 0 1px 2px 0 rgba(60,64,67,.3), 0 2px 6px 2px rgba(60,64,67,.15);
+  .m3-btn-filled {
+    @apply m3-btn;
+    background-color: var(--m3-primary);
+    color: var(--m3-on-primary);
+    box-shadow: var(--elev-1);
+  }
+  .m3-btn-filled:hover:not(:disabled) {
+    background-color: var(--m3-primary-hover);
+    box-shadow: var(--elev-3);
+  }
+  .m3-btn-filled:active:not(:disabled) {
+    background-color: var(--m3-primary-pressed);
+    box-shadow: var(--elev-1);
   }
 
-  .google-button-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-brand-600 hover:shadow-[0_1px_3px_1px_rgba(26,115,232,.3)] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 active:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed;
+  .m3-btn-tonal {
+    @apply m3-btn;
+    background-color: var(--m3-primary-container);
+    color: var(--m3-on-primary-container);
+  }
+  .m3-btn-tonal:hover:not(:disabled) {
+    background-color: #c4daf9;
+    box-shadow: var(--elev-1);
   }
 
-  .google-button-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-[#dadce0] bg-white px-5 py-2 text-sm font-medium text-brand-500 transition-all duration-200 hover:bg-brand-50 hover:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50;
+  .m3-btn-outlined {
+    @apply m3-btn;
+    background-color: transparent;
+    color: var(--m3-primary);
+    border: 1px solid var(--m3-outline);
+  }
+  .m3-btn-outlined:hover:not(:disabled) {
+    background-color: rgba(26, 115, 232, 0.06);
+    border-color: var(--m3-primary);
   }
 
-  .google-input {
-    @apply w-full rounded-lg border border-[#dadce0] px-4 py-3 text-base text-[#202124] outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 placeholder:text-[#9aa0a6];
+  .m3-btn-text {
+    @apply m3-btn;
+    background-color: transparent;
+    color: var(--m3-primary);
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
+  .m3-btn-text:hover:not(:disabled) {
+    background-color: rgba(26, 115, 232, 0.08);
+  }
+
+  /* ============================================================
+     CARDS
+     ============================================================ */
+  .m3-card {
+    background-color: var(--m3-surface-container-lowest);
+    border: 1px solid var(--m3-outline-variant);
+    @apply rounded-2xl transition-all duration-300;
+    box-shadow: var(--elev-1);
+    transition-timing-function: var(--m3-emphasized);
+  }
+  .m3-card:hover {
+    box-shadow: var(--elev-2);
+    transform: translateY(-1px);
+  }
+
+  .m3-card-flat {
+    background-color: var(--m3-surface-container-low);
+    @apply rounded-2xl transition-all duration-200;
+  }
+
+  .m3-card-outlined {
+    background-color: var(--m3-surface);
+    border: 1px solid var(--m3-outline-variant);
+    @apply rounded-2xl transition-all duration-200;
+  }
+
+  /* ============================================================
+     INPUTS — outlined text field
+     ============================================================ */
+  .m3-input {
+    @apply w-full h-14 px-4 pt-5 pb-1 text-[15px] rounded-xl outline-none transition-all duration-150;
+    background-color: var(--m3-surface-container-low);
+    color: var(--m3-on-surface);
+    border: 1px solid var(--m3-outline);
+    font-family: var(--font-sans);
+  }
+  .m3-input::placeholder {
+    color: var(--m3-on-surface-faint);
+  }
+  .m3-input:hover {
+    border-color: var(--m3-on-surface-variant);
+  }
+  .m3-input:focus {
+    border-color: var(--m3-primary);
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.18);
+  }
+
+  /* Floating-label field wrapper */
+  .m3-field {
+    @apply relative;
+  }
+  .m3-field > label {
+    @apply absolute left-4 top-4 px-1 text-[15px] pointer-events-none transition-all duration-150;
+    color: var(--m3-on-surface-muted);
+    background-color: var(--m3-surface-container-low);
+  }
+  .m3-field > input:focus ~ label,
+  .m3-field > input:not(:placeholder-shown) ~ label {
+    @apply -top-2 left-3 text-xs;
+    color: var(--m3-primary);
+  }
+
+  /* ============================================================
+     CHIPS & PILLS
+     ============================================================ */
+  .m3-chip {
+    @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[13px] font-medium
+           transition-all duration-150 select-none cursor-pointer;
+    background-color: var(--m3-surface-container-low);
+    color: var(--m3-on-surface);
+    border: 1px solid var(--m3-outline-variant);
+    font-family: var(--font-sans);
+  }
+  .m3-chip:hover {
+    background-color: var(--m3-surface-container);
+    box-shadow: var(--elev-1);
+  }
+  .m3-chip-active {
+    background-color: var(--m3-primary-container);
+    color: var(--m3-on-primary-container);
+    border-color: transparent;
+  }
+
+  .m3-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider;
+    font-family: var(--font-sans);
+  }
+
+  /* ============================================================
+     TYPOGRAPHY
+     ============================================================ */
+  .m3-display-l { font-family: var(--font-display); font-size: clamp(2.75rem, 6vw, 4rem); line-height: 1.05; letter-spacing: -0.02em; font-weight: 700; }
+  .m3-display-m { font-family: var(--font-display); font-size: clamp(2.25rem, 4.5vw, 3rem); line-height: 1.1;  letter-spacing: -0.018em; font-weight: 700; }
+  .m3-display-s { font-family: var(--font-display); font-size: clamp(1.75rem, 3.5vw, 2.25rem); line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; }
+  .m3-headline-l { font-family: var(--font-display); font-size: 2rem;   line-height: 1.2; letter-spacing: -0.01em; font-weight: 600; }
+  .m3-headline-m { font-family: var(--font-display); font-size: 1.5rem; line-height: 1.25; letter-spacing: -0.005em; font-weight: 600; }
+  .m3-headline-s { font-family: var(--font-display); font-size: 1.25rem; line-height: 1.3; font-weight: 600; }
+  .m3-title-l    { font-family: var(--font-display); font-size: 1.125rem; line-height: 1.4; font-weight: 600; }
+
+  /* Legacy compatibility */
+  .google-card        { @apply m3-card p-6; }
+  .google-button-primary   { @apply m3-btn-filled; }
+  .google-button-secondary { @apply m3-btn-outlined; }
+  .google-button-text      { @apply m3-btn-text; }
+  .google-input            { @apply m3-input; }
+  .google-chip             { @apply m3-chip; }
+  .google-chip-active      { @apply m3-chip-active; }
+  .google-field            { @apply m3-field; }
+  .status-badge            { @apply m3-pill; }
 }
 
-/* Scrollbar */
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #dadce0;
-  border-radius: 4px;
+  background: var(--m3-outline-variant);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #bdc1c6;
+  background: var(--m3-outline);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }
 
+/* ============================================================
+   FOCUS RING
+   ============================================================ */
 :focus:not(:focus-visible) {
   outline: none;
   box-shadow: none;
 }
-
 :focus-visible {
-  outline: 2px solid #1a73e8;
+  outline: 2px solid var(--m3-primary);
   outline-offset: 2px;
+  border-radius: 4px;
 }

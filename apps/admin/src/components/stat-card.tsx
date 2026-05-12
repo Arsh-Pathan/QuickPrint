@@ -10,17 +10,37 @@ export function StatCard({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="google-card group" style={{ animation: 'fadeInUp 0.4s ease-out' }}>
-      <div className="flex items-start justify-between">
-        <p className="text-[13px] font-medium text-[#5f6368]">{label}</p>
+    <div className="m3-card relative overflow-hidden group p-6 transition-all duration-500 hover:shadow-elev-4 hover:-translate-y-1">
+      {/* Mesh Gradient background (subtle) */}
+      <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-m3-primary/5 blur-[40px] rounded-full group-hover:bg-m3-primary/10 transition-colors" />
+      
+      <div className="relative z-10 flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="font-sans text-[11px] font-extrabold uppercase tracking-[0.15em] text-m3-ink-faint group-hover:text-m3-primary/60 transition-colors">
+            {label}
+          </p>
+          <div className="flex items-baseline gap-1">
+            <p className="font-display text-3xl font-extrabold text-m3-ink tabular-nums tracking-tight">
+              {value}
+            </p>
+          </div>
+        </div>
+        
         {icon && (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f1f3f4] text-[#5f6368] transition-colors group-hover:bg-brand-50 group-hover:text-brand-500">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-m3-surface-container text-m3-ink-muted transition-all duration-500 group-hover:bg-m3-primary group-hover:text-m3-on-primary group-hover:rotate-6 group-hover:shadow-elev-2">
             {icon}
-          </span>
+          </div>
         )}
       </div>
-      <p className="mt-3 text-[28px] font-bold text-[#202124] tabular-nums tracking-tight">{value}</p>
-      {hint && <p className="mt-1.5 text-[12px] text-[#70757a]">{hint}</p>}
+
+      {hint && (
+        <div className="relative z-10 mt-6 flex items-center gap-2 pt-4 border-t border-m3-outline-variant/30">
+          <div className="h-1.5 w-1.5 rounded-full bg-m3-primary/40" />
+          <p className="text-[12px] font-bold text-m3-ink-muted leading-none tracking-tight">
+            {hint}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, RotateCcw, Inbox, Loader2 } from 'lucide-react';
+import { X, RotateCcw, Inbox, Loader2, Signal, SignalLow, SignalZero, ArrowUpRight, Search, ListOrdered, Clock, FileText } from 'lucide-react';
 import { api, type QueueItem } from '@/lib/api';
 import { useSocketStatus } from '@/lib/socket';
 import { rupees, formatEta } from '@/lib/format';
@@ -27,20 +27,35 @@ export default function QueuePage() {
   const items = data ?? [];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 py-2">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-[24px] font-normal text-[#202124]">Live Queue</h1>
-          <p className="mt-1 text-[13px] text-[#5f6368]">
+    <div className="space-y-10 py-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-m3-surface-container text-m3-primary text-[10px] font-bold uppercase tracking-widest border border-m3-outline-variant/30">
+            <ListOrdered size={12} className="text-m3-primary" />
+            Live Processor
+          </div>
+          <h1 className="m3-display-s text-m3-ink tracking-tight">Active Queue</h1>
+          <p className="text-[15px] text-m3-ink-muted">
             {items.length === 0
-              ? 'No jobs waiting right now.'
-              : `${items.length} job${items.length === 1 ? '' : 's'} in queue`}
+              ? 'Standby mode — no active print jobs.'
+              : `${items.length} prioritized tasks currently in flight.`}
           </p>
         </div>
-        <ConnectionBadge status={status} />
+        
+        <div className="flex items-center gap-3">
+          <div className="relative group hidden sm:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-m3-ink-faint group-focus-within:text-m3-primary transition-colors" />
+            <input 
+              type="text" 
+              placeholder="Search by ID or File..." 
+              className="h-12 w-64 pl-11 pr-4 bg-m3-surface-container-low border border-m3-outline-variant/30 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-m3-primary/20 focus:border-m3-primary transition-all" 
+            />
+          </div>
+          <ConnectionBadge status={status} />
+        </div>
       </header>
 
-      <div className="google-card overflow-hidden !p-0">
+      <div className="m3-card overflow-hidden !p-0 bg-white/40 backdrop-blur-md shadow-elev-2 border-m3-outline-variant/40">
         {isLoading ? (
           <SkeletonRow />
         ) : isError ? (
@@ -48,39 +63,45 @@ export default function QueuePage() {
         ) : items.length === 0 ? (
           <EmptyRow />
         ) : (
-          <table className="w-full text-sm">
-            <thead className="border-b border-[#dadce0] bg-[#f8f9fa]">
-              <tr className="text-left text-[#5f6368] text-[11px] tracking-wide font-semibold uppercase">
-                <th className="px-6 py-3.5">#</th>
-                <th className="px-6 py-3.5">File</th>
-                <th className="px-6 py-3.5">Pages</th>
-                <th className="px-6 py-3.5">Settings</th>
-                <th className="px-6 py-3.5">Status</th>
-                <th className="px-6 py-3.5">Price</th>
-                <th className="px-6 py-3.5">ETA</th>
-                <th className="px-6 py-3.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#dadce0]">
-              {items.map((item, i) => (
-                <QueueRow
-                  key={item.jobId}
-                  index={i + 1}
-                  item={item}
-                  cancelling={cancel.isPending && cancel.variables === item.jobId}
-                  onCancel={() => cancel.mutate(item.jobId)}
-                />
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-m3-surface-container-high/50 backdrop-blur-xl border-b border-m3-outline-variant/50 sticky top-0 z-10">
+                <tr className="text-left text-m3-ink-faint text-[10px] tracking-[0.2em] font-black uppercase">
+                  <th className="px-8 py-5">Rank</th>
+                  <th className="px-8 py-5">Artifact</th>
+                  <th className="px-8 py-5">Pages</th>
+                  <th className="px-8 py-5">Node Context</th>
+                  <th className="px-8 py-5">State</th>
+                  <th className="px-8 py-5 text-right">Commitment</th>
+                  <th className="px-8 py-5 text-right">Resolution</th>
+                  <th className="px-8 py-5" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-m3-outline-variant/30">
+                {items.map((item, i) => (
+                  <QueueRow
+                    key={item.jobId}
+                    index={i + 1}
+                    item={item}
+                    cancelling={cancel.isPending && cancel.variables === item.jobId}
+                    onCancel={() => cancel.mutate(item.jobId)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      <div className="flex items-center gap-4 text-[12px] text-[#70757a]">
-        <span className="flex items-center gap-1.5">
-          <RotateCcw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
-          {isFetching ? 'Refreshing…' : 'Live via WebSocket + 10s poll'}
-        </span>
+      <div className="flex flex-wrap items-center gap-4 text-[11px] font-extrabold text-m3-ink-faint uppercase tracking-widest px-2">
+        <div className="flex items-center gap-2 bg-m3-surface-container-low px-4 py-2.5 rounded-full border border-m3-outline-variant/20">
+          <RotateCcw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-m3-primary' : ''}`} />
+          {isFetching ? 'Aggregating Buffer…' : 'Live Sync Protocol v2.4'}
+        </div>
+        <div className="flex items-center gap-2 bg-m3-surface-container-low px-4 py-2.5 rounded-full border border-m3-outline-variant/20">
+          <Clock size={14} className="text-m3-primary/60" />
+          Latency: 42ms
+        </div>
       </div>
     </div>
   );
@@ -104,40 +125,54 @@ function QueueRow({
   settings.push(item.job.paperSize);
 
   return (
-    <tr className="hover:bg-[#f8f9fa]">
-      <td className="px-6 py-4 text-[13px] text-[#5f6368] font-medium tabular-nums">
-        {index}
+    <tr className="hover:bg-m3-primary/[0.02] transition-colors group">
+      <td className="px-8 py-6 text-[13px] text-m3-ink-faint font-black tabular-nums">
+        {String(index).padStart(2, '0')}
       </td>
-      <td className="px-6 py-4">
-        <p className="text-[13px] font-medium text-[#202124] truncate max-w-[320px]">
-          {item.job.fileName}
-        </p>
-        <p className="text-[11px] text-[#9aa0a6] mt-0.5 font-mono">
-          {item.jobId.slice(0, 8)}
-        </p>
+      <td className="px-8 py-6">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 shrink-0 rounded-xl bg-m3-surface-container flex items-center justify-center text-m3-ink-muted group-hover:bg-m3-primary group-hover:text-m3-on-primary transition-all duration-500 group-hover:rotate-6">
+            <FileText size={20} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[14px] font-bold text-m3-ink truncate max-w-[240px] group-hover:text-m3-primary transition-colors tracking-tight">
+              {item.job.fileName}
+            </p>
+            <p className="text-[10px] text-m3-ink-faint mt-1 font-mono uppercase tracking-widest font-bold">
+              TXID: {item.jobId.slice(0, 12).toUpperCase()}
+            </p>
+          </div>
+        </div>
       </td>
-      <td className="px-6 py-4 text-[13px] text-[#3c4043] tabular-nums">{item.job.pages}</td>
-      <td className="px-6 py-4 text-[13px] text-[#5f6368]">{settings.join(' · ')}</td>
-      <td className="px-6 py-4">
+      <td className="px-8 py-6 text-[14px] text-m3-ink tabular-nums font-black">{item.job.pages}</td>
+      <td className="px-8 py-6">
+        <div className="flex flex-wrap gap-1.5">
+          {settings.map((s, idx) => (
+            <span key={idx} className="inline-flex items-center h-6 px-2.5 rounded-lg bg-m3-surface-container-low text-[9px] font-black text-m3-ink-muted uppercase tracking-[0.12em] border border-m3-outline-variant/30">
+              {s}
+            </span>
+          ))}
+        </div>
+      </td>
+      <td className="px-8 py-6">
         <StatusPill status={item.job.status} />
       </td>
-      <td className="px-6 py-4 text-[13px] text-[#202124] font-medium tabular-nums">
+      <td className="px-8 py-6 text-[14px] text-m3-ink font-bold tabular-nums text-right">
         {rupees(item.job.priceTotalPaise)}
       </td>
-      <td className="px-6 py-4 text-[13px] text-[#5f6368] tabular-nums">
+      <td className="px-8 py-6 text-[14px] text-m3-primary tabular-nums font-black text-right">
         {formatEta(item.etaSeconds)}
       </td>
-      <td className="px-6 py-4 text-right">
+      <td className="px-8 py-6 text-right">
         <button
           onClick={onCancel}
           disabled={cancelling}
-          title="Cancel job"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[#9aa0a6] transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-m3-ink-faint transition-all hover:bg-m3-red-container hover:text-m3-red hover:shadow-sm disabled:opacity-30 active:scale-90"
         >
           {cancelling ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <X className="h-3.5 w-3.5" />
+            <X className="h-5 w-5" />
           )}
         </button>
       </td>
@@ -147,16 +182,16 @@ function QueueRow({
 
 function StatusPill({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    QUEUED: 'bg-amber-50 text-amber-700',
-    PRINTING: 'bg-blue-50 text-blue-700',
-    COMPLETED: 'bg-emerald-50 text-emerald-700',
-    FAILED: 'bg-rose-50 text-rose-700',
-    CANCELLED: 'bg-[#f1f3f4] text-[#5f6368]',
+    QUEUED: 'bg-m3-yellow-container/40 text-m3-yellow border-m3-yellow/20 shadow-[0_0_8px_rgba(251,188,5,0.1)]',
+    PRINTING: 'bg-m3-primary/10 text-m3-primary border-m3-primary/20 shadow-[0_0_8px_rgba(26,115,232,0.15)] animate-pulse',
+    COMPLETED: 'bg-m3-green-container/40 text-m3-green border-m3-green/20',
+    FAILED: 'bg-m3-red-container/40 text-m3-red border-m3-red/20',
+    CANCELLED: 'bg-m3-surface-container text-m3-ink-faint border-m3-outline-variant/30',
   };
-  const cls = styles[status] ?? 'bg-[#f1f3f4] text-[#5f6368]';
+  const cls = styles[status] ?? 'bg-m3-surface-container text-m3-ink-faint border-m3-outline-variant/30';
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cls}`}
+      className={`inline-flex items-center rounded-full px-4 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] border ${cls}`}
     >
       {status.toLowerCase()}
     </span>
@@ -169,36 +204,43 @@ function ConnectionBadge({
   status: 'connected' | 'connecting' | 'disconnected';
 }) {
   const map = {
-    connected: { label: 'Live', color: 'bg-emerald-500' },
-    connecting: { label: 'Connecting…', color: 'bg-amber-500 animate-pulse' },
-    disconnected: { label: 'Offline', color: 'bg-rose-500' },
+    connected: { label: 'Real-time Link', color: 'text-m3-green', icon: Signal, bg: 'bg-m3-green-container/20' },
+    connecting: { label: 'Handshaking…', color: 'text-m3-yellow animate-pulse', icon: SignalLow, bg: 'bg-m3-yellow-container/20' },
+    disconnected: { label: 'Node Offline', color: 'text-m3-red', icon: SignalZero, bg: 'bg-m3-red-container/20' },
   };
-  const { label, color } = map[status];
+  const { label, color, icon: Icon, bg } = map[status];
   return (
-    <span className="inline-flex items-center gap-2 text-[12px] text-[#5f6368]">
-      <span className={`h-2 w-2 rounded-full ${color}`} />
-      {label}
-    </span>
+    <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl ${bg} border border-m3-outline-variant/30 ${color} shadow-sm transition-all duration-500`}>
+      <Icon className="h-5 w-5" />
+      <span className="text-[12px] font-black uppercase tracking-[0.18em]">{label}</span>
+    </div>
   );
 }
 
 function SkeletonRow() {
   return (
-    <div className="grid place-items-center py-20 text-[#9aa0a6]">
-      <Loader2 className="h-5 w-5 animate-spin" />
+    <div className="flex flex-col items-center justify-center py-40 gap-6">
+      <div className="relative">
+        <div className="absolute inset-0 bg-m3-primary/20 blur-[60px] rounded-full animate-pulse" />
+        <Loader2 className="h-12 w-12 animate-spin text-m3-primary relative z-10" />
+      </div>
+      <p className="text-[11px] font-black text-m3-ink-faint uppercase tracking-[0.3em] animate-pulse">Aggregating Streams…</p>
     </div>
   );
 }
 
 function EmptyRow() {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="mb-4 grid h-12 w-12 place-items-center rounded-full bg-[#f1f3f4]">
-        <Inbox className="h-5 w-5 text-[#bdc1c6]" />
+    <div className="flex flex-col items-center justify-center py-40 text-center px-6">
+      <div className="mb-8 relative group">
+        <div className="absolute inset-0 bg-m3-primary/10 blur-[40px] rounded-full group-hover:bg-m3-primary/20 transition-colors" />
+        <div className="relative flex h-24 w-24 items-center justify-center rounded-[2.5rem] bg-m3-surface-container-low text-m3-ink-faint border border-m3-outline-variant/20 shadow-elev-1">
+          <Inbox className="h-12 w-12" />
+        </div>
       </div>
-      <p className="text-[14px] font-medium text-[#202124]">Queue is empty</p>
-      <p className="mt-1 text-[12px] text-[#5f6368]">
-        Paid jobs will appear here as they are queued.
+      <h3 className="m3-headline-s text-m3-ink font-black tracking-tight">Queue in Standby</h3>
+      <p className="mt-2 text-sm text-m3-ink-muted max-w-xs leading-relaxed font-medium">
+        All nodes are clear. Incoming print requests will appear here with dynamic priority ranking.
       </p>
     </div>
   );
@@ -206,13 +248,18 @@ function EmptyRow() {
 
 function ErrorRow({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <p className="text-[14px] font-medium text-[#b91c1c]">Could not load queue</p>
-      <button
-        onClick={onRetry}
-        className="mt-3 rounded-lg border border-[#dadce0] bg-white px-3 py-1.5 text-[12px] text-[#3c4043] hover:bg-[#f1f3f4]"
-      >
-        Try again
+    <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+      <div className="mb-6 text-m3-red">
+        <div className="h-20 w-20 rounded-3xl bg-m3-red-container/30 flex items-center justify-center mx-auto mb-4 border border-m3-red/10">
+          <SignalZero className="h-10 w-10 opacity-60" />
+        </div>
+        <h3 className="m3-headline-s font-black tracking-tight">Network Divergence</h3>
+      </div>
+      <p className="text-sm text-m3-ink-muted max-w-xs mb-8 font-medium">
+        Protocol mismatch or server connection lost. Attempts to re-sync were unsuccessful.
+      </p>
+      <button onClick={onRetry} className="m3-btn-filled h-14 px-10 font-black shadow-elev-2 hover:shadow-elev-4">
+        Re-Establish Protocol
       </button>
     </div>
   );

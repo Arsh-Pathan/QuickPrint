@@ -2,6 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { SettingsService, ShopSecrets, ShopSettings } from '@/lib/settings';
+import { 
+  Shield, 
+  ChevronDown, 
+  ChevronUp, 
+  Eye, 
+  EyeOff, 
+  AlertCircle, 
+  CheckCircle2, 
+  Loader2, 
+  RefreshCcw,
+  Store,
+  DollarSign,
+  Cloud
+} from 'lucide-react';
 
 const SECRET_FIELDS: Array<{
   key: keyof ShopSecrets;
@@ -13,7 +27,7 @@ const SECRET_FIELDS: Array<{
   { key: 'razorpayKeySecret', label: 'Razorpay Key Secret', isPassword: true },
   { key: 'razorpayWebhookSecret', label: 'Razorpay Webhook Secret', isPassword: true },
   { key: 'jwtSecret', label: 'JWT Secret', isPassword: true, warn: 'Changing this signs out all users.' },
-  { key: 'agentTokenSecret', label: 'Agent Token Secret', isPassword: true, warn: 'Active print agents must be re-issued tokens.' },
+  { key: 'agentTokenSecret', label: 'Agent Token Secret', isPassword: true, warn: 'Agents must be re-authenticated.' },
   { key: 'adminPassword', label: 'Admin Password', isPassword: true },
 ];
 
@@ -30,9 +44,7 @@ export function SettingsForm() {
     secrets: {},
   });
 
-  // Masked tails shown as placeholders (e.g. ••••••••XYZ4)
   const [masks, setMasks] = useState<ShopSecrets>({});
-  // Pending overwrites — only non-empty strings are sent
   const [secretInputs, setSecretInputs] = useState<ShopSecrets>({});
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [showSecrets, setShowSecrets] = useState(false);
@@ -50,7 +62,7 @@ export function SettingsForm() {
       setSettings({ ...data, secrets: {} });
       setMasks(data.secrets ?? {});
     } catch {
-      setError('Failed to load settings');
+      setError('Failed to load configuration');
     } finally {
       setLoading(false);
     }
@@ -63,10 +75,7 @@ export function SettingsForm() {
       setError(null);
       setSuccess(null);
 
-      // Non-secret fields
       const { secrets: _drop, ...nonSecret } = settings;
-
-      // Only send secret fields the admin actually typed into
       const secretsPatch: ShopSecrets = {};
       for (const [k, v] of Object.entries(secretInputs)) {
         if (typeof v === 'string' && v.length > 0) {
@@ -80,18 +89,16 @@ export function SettingsForm() {
         secrets: hasSecretChange ? secretsPatch : undefined,
       });
 
-      setSuccess('Settings saved.');
+      setSuccess('Configuration synchronized successfully');
       setSecretInputs({});
       setRevealed({});
 
-      // Refresh masks from server response
       if (result.secrets) setMasks(result.secrets as ShopSecrets);
-
       if (hasSecretChange || result.restartRequired) {
         setRestartPrompt(true);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to save settings');
+      setError(err.message || 'Synchronization failed');
     } finally {
       setLoading(false);
     }
@@ -101,7 +108,6 @@ export function SettingsForm() {
     try {
       setRestarting(true);
       await SettingsService.restartBackend();
-      // Backend exits 0; Electron launcher relaunches it. Poll readyz to know when it's back.
       const deadline = Date.now() + 90_000;
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 1000));
@@ -110,182 +116,274 @@ export function SettingsForm() {
           if (res.ok) {
             setRestarting(false);
             setRestartPrompt(false);
-            setSuccess('Backend restarted. New settings are live.');
+            setSuccess('Backend online. New settings are active.');
             return;
           }
-        } catch {
-          // backend is still restarting
-        }
+        } catch { }
       }
       setRestarting(false);
-      setError('Restart taking longer than expected — try refreshing the page.');
+      setError('Restart timeout — please check the console');
     } catch (err: any) {
       setRestarting(false);
-      setError(err.message || 'Restart failed');
+      setError(err.message || 'Restart failure');
     }
   };
 
   useEffect(() => { loadSettings(); }, []);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-[#d93025]">
-          <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-          </svg>
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          {success}
-        </div>
-      )}
-
-      <div className="space-y-5">
-        <div>
-          <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368] uppercase tracking-wide">Shop Name</label>
-          <input type="text" value={settings.shopName} onChange={(e) => setSettings({ ...settings, shopName: e.target.value })} disabled={loading} className="google-input" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368] uppercase tracking-wide">B/W (paise)</label>
-            <input type="number" min="0" value={settings.bwPaise} onChange={(e) => setSettings({ ...settings, bwPaise: Number(e.target.value) || 0 })} disabled={loading} className="google-input" />
+    <form onSubmit={handleSubmit} className="space-y-12">
+      {/* Feedback Notifications */}
+      <div className="space-y-3">
+        {error && (
+          <div className="flex items-center gap-3 rounded-2xl bg-m3-red-container/30 border border-m3-red/10 px-5 py-4 text-[13px] font-medium text-m3-red animate-in fade-in slide-in-from-top-2 duration-300">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            {error}
           </div>
-          <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368] uppercase tracking-wide">Color (paise)</label>
-            <input type="number" min="0" value={settings.colorPaise} onChange={(e) => setSettings({ ...settings, colorPaise: Number(e.target.value) || 0 })} disabled={loading} className="google-input" />
-          </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368] uppercase tracking-wide">Duplex Discount (%)</label>
-            <input type="number" min="0" max="100" value={settings.duplexDiscountPct} onChange={(e) => setSettings({ ...settings, duplexDiscountPct: Number(e.target.value) || 0 })} disabled={loading} className="google-input" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368] uppercase tracking-wide">Default Paper Size</label>
-            <select value={settings.defaultPaperSize} onChange={(e) => setSettings({ ...settings, defaultPaperSize: e.target.value as any })} disabled={loading} className="google-input">
-              <option value="A4">A4</option>
-              <option value="A3">A3</option>
-              <option value="LETTER">LETTER</option>
-              <option value="LEGAL">LEGAL</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setSettings({ ...settings, acceptingJobs: !settings.acceptingJobs })}
-            disabled={loading}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-50 ${settings.acceptingJobs ? 'bg-brand-500' : 'bg-[#bdc1c6]'}`}
-          >
-            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-all duration-300 ease-in-out ${settings.acceptingJobs ? 'translate-x-[22px]' : 'translate-x-[2px]'} mt-[2px]`} />
-          </button>
-          <span className="text-sm font-medium text-[#3c4043]">Accepting Jobs</span>
-        </div>
-      </div>
-
-      <div className="border-t border-[#dadce0] pt-6 space-y-5">
-        <h3 className="text-[13px] font-semibold text-[#202124] uppercase tracking-wider">Public Access</h3>
-
-        <div>
-          <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368]">Student Web Public URL</label>
-          <input type="url" placeholder="https://..." value={settings.publicUrl || ''} onChange={(e) => setSettings({ ...settings, publicUrl: e.target.value })} disabled={loading} className="google-input" />
-          <p className="mt-1 text-[11px] text-[#5f6368]">Points your student QR code to this address.</p>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368]">Cloudflare Tunnel Token</label>
-          <input type="password" placeholder="Your long tunnel token..." value={settings.cloudflareToken || ''} onChange={(e) => setSettings({ ...settings, cloudflareToken: e.target.value })} disabled={loading} className="google-input" />
-          <p className="mt-1 text-[11px] text-[#5f6368]">If provided, the desktop app will try to start the tunnel automatically.</p>
-        </div>
-      </div>
-
-      <div className="border-t border-[#dadce0] pt-6">
-        <button
-          type="button"
-          onClick={() => setShowSecrets((v) => !v)}
-          className="flex w-full items-center justify-between text-left"
-        >
-          <h3 className="text-[13px] font-semibold text-[#202124] uppercase tracking-wider">Environment &amp; Secrets</h3>
-          <span className="text-[11px] text-[#5f6368]">{showSecrets ? 'Hide' : 'Show'}</span>
-        </button>
-
-        {showSecrets && (
-          <div className="mt-4 space-y-4 rounded-lg bg-[#fafafa] p-4">
-            <p className="text-[11px] text-[#5f6368]">
-              Leave a field blank to keep the existing value. Saved values display only the last 4 characters.
-            </p>
-            {SECRET_FIELDS.map((field) => {
-              const mask = (masks as any)[field.key] as string | undefined;
-              const value = (secretInputs as any)[field.key] ?? '';
-              const isRevealed = !!revealed[field.key as string];
-              const inputType = field.isPassword && !isRevealed ? 'password' : 'text';
-              return (
-                <div key={field.key as string}>
-                  <label className="mb-1.5 block text-[12px] font-medium text-[#5f6368]">
-                    {field.label}
-                    {mask ? <span className="ml-2 font-mono text-[#9aa0a6]">current: {mask}</span> : <span className="ml-2 text-[#d93025]">not set</span>}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type={inputType}
-                      value={value}
-                      onChange={(e) => setSecretInputs({ ...secretInputs, [field.key]: e.target.value })}
-                      disabled={loading}
-                      placeholder={mask ? 'Enter new value to overwrite' : 'Enter value'}
-                      className="google-input flex-1"
-                      autoComplete="off"
-                    />
-                    {field.isPassword && (
-                      <button
-                        type="button"
-                        onClick={() => setRevealed({ ...revealed, [field.key as string]: !isRevealed })}
-                        className="rounded-md border border-[#dadce0] px-3 text-[11px] font-medium text-[#5f6368] hover:bg-white"
-                      >
-                        {isRevealed ? 'Hide' : 'Show'}
-                      </button>
-                    )}
-                  </div>
-                  {field.warn && (
-                    <p className="mt-1 text-[11px] text-amber-700">⚠ {field.warn}</p>
-                  )}
-                </div>
-              );
-            })}
+        {success && (
+          <div className="flex items-center gap-3 rounded-2xl bg-m3-green-container/30 border border-m3-green/10 px-5 py-4 text-[13px] font-medium text-m3-green animate-in fade-in slide-in-from-top-2 duration-300">
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+            {success}
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-end pt-2">
-        <button type="submit" disabled={loading} className="google-button-primary">
-          {loading ? 'Saving...' : 'Save Settings'}
+      {/* Basic Shop Info */}
+      <div className="space-y-8">
+        <div className="flex items-center gap-3 mb-2">
+          <Store className="h-5 w-5 text-m3-primary" />
+          <h3 className="m3-title-l text-m3-ink">Shop Details</h3>
+        </div>
+        
+        <div className="m3-field">
+          <input 
+            type="text" 
+            placeholder=" "
+            value={settings.shopName} 
+            onChange={(e) => setSettings({ ...settings, shopName: e.target.value })} 
+            disabled={loading} 
+            className="m3-input" 
+          />
+          <label>Shop Name</label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="m3-field">
+            <input 
+              type="number" 
+              placeholder=" "
+              value={settings.bwPaise} 
+              onChange={(e) => setSettings({ ...settings, bwPaise: Number(e.target.value) || 0 })} 
+              disabled={loading} 
+              className="m3-input" 
+            />
+            <label>B/W Rate (paise)</label>
+          </div>
+          <div className="m3-field">
+            <input 
+              type="number" 
+              placeholder=" "
+              value={settings.colorPaise} 
+              onChange={(e) => setSettings({ ...settings, colorPaise: Number(e.target.value) || 0 })} 
+              disabled={loading} 
+              className="m3-input" 
+            />
+            <label>Color Rate (paise)</label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="m3-field">
+            <input 
+              type="number" 
+              placeholder=" "
+              value={settings.duplexDiscountPct} 
+              onChange={(e) => setSettings({ ...settings, duplexDiscountPct: Number(e.target.value) || 0 })} 
+              disabled={loading} 
+              className="m3-input" 
+            />
+            <label>Duplex Discount (%)</label>
+          </div>
+          <div className="m3-field">
+            <select 
+              value={settings.defaultPaperSize} 
+              onChange={(e) => setSettings({ ...settings, defaultPaperSize: e.target.value as any })} 
+              disabled={loading} 
+              className="m3-input appearance-none"
+            >
+              <option value="A4">A4 Standard</option>
+              <option value="A3">A3 Large</option>
+              <option value="LETTER">Letter</option>
+              <option value="LEGAL">Legal</option>
+            </select>
+            <label>Default Paper</label>
+            <ChevronDown className="absolute right-4 top-5 h-5 w-5 text-m3-ink-faint pointer-events-none" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-m3-surface-container-low border border-m3-outline-variant/30 group">
+          <div className="flex items-center gap-3">
+            <div className={`h-3 w-3 rounded-full ${settings.acceptingJobs ? 'bg-m3-green shadow-[0_0_8px_rgba(52,168,83,0.5)]' : 'bg-m3-outline'}`} />
+            <span className="text-sm font-bold text-m3-ink">Accepting New Print Orders</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettings({ ...settings, acceptingJobs: !settings.acceptingJobs })}
+            disabled={loading}
+            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full transition-all duration-300 ease-emphasized focus:outline-none ${settings.acceptingJobs ? 'bg-m3-primary' : 'bg-m3-outline'}`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-elev-2 ring-0 transition-all duration-300 ease-emphasized ${settings.acceptingJobs ? 'translate-x-[24px]' : 'translate-x-[4px]'} mt-[4px]`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Network & Cloud */}
+      <div className="space-y-8 pt-8 border-t border-m3-outline-variant/50">
+        <div className="flex items-center gap-3 mb-2">
+          <Cloud className="h-5 w-5 text-m3-primary" />
+          <h3 className="m3-title-l text-m3-ink">Network Configuration</h3>
+        </div>
+
+        <div className="m3-field">
+          <input 
+            type="url" 
+            placeholder=" " 
+            value={settings.publicUrl || ''} 
+            onChange={(e) => setSettings({ ...settings, publicUrl: e.target.value })} 
+            disabled={loading} 
+            className="m3-input" 
+          />
+          <label>Public Web URL</label>
+          <p className="absolute -bottom-6 left-1 text-[10px] font-bold text-m3-ink-faint uppercase tracking-widest">Points QR code to this address</p>
+        </div>
+
+        <div className="m3-field pt-2">
+          <input 
+            type="password" 
+            placeholder=" " 
+            value={settings.cloudflareToken || ''} 
+            onChange={(e) => setSettings({ ...settings, cloudflareToken: e.target.value })} 
+            disabled={loading} 
+            className="m3-input" 
+          />
+          <label>Cloudflare Tunnel Token</label>
+          <p className="absolute -bottom-6 left-1 text-[10px] font-bold text-m3-ink-faint uppercase tracking-widest">Optional auto-tunnel startup</p>
+        </div>
+      </div>
+
+      {/* Advanced Secrets */}
+      <div className="pt-8 border-t border-m3-outline-variant/50">
+        <button
+          type="button"
+          onClick={() => setShowSecrets((v) => !v)}
+          className="flex w-full items-center justify-between group"
+        >
+          <div className="flex items-center gap-3">
+            <Shield className="h-5 w-5 text-m3-ink-muted group-hover:text-m3-primary transition-colors" />
+            <h3 className="m3-title-l text-m3-ink">Security & API Credentials</h3>
+          </div>
+          <div className="flex items-center gap-2 text-m3-primary font-bold text-[11px] uppercase tracking-widest">
+            {showSecrets ? 'Collapse' : 'Manage Keys'}
+            {showSecrets ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
+        </button>
+
+        {showSecrets && (
+          <div className="mt-8 space-y-6 rounded-3xl bg-m3-surface-container-lowest p-8 border border-m3-outline-variant/30 animate-in fade-in slide-in-from-top-4 duration-500">
+            <p className="text-[12px] text-m3-ink-muted leading-relaxed">
+              For security, existing values are masked. Type into a field only if you wish to overwrite the current key.
+            </p>
+            
+            <div className="grid grid-cols-1 gap-8">
+              {SECRET_FIELDS.map((field) => {
+                const mask = (masks as any)[field.key] as string | undefined;
+                const value = (secretInputs as any)[field.key] ?? '';
+                const isRevealed = !!revealed[field.key as string];
+                const inputType = field.isPassword && !isRevealed ? 'password' : 'text';
+                
+                return (
+                  <div key={field.key as string} className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <label className="text-[12px] font-bold text-m3-ink uppercase tracking-wider">{field.label}</label>
+                      {mask ? (
+                        <span className="text-[10px] font-mono text-m3-primary bg-m3-primary-container/30 px-2 py-0.5 rounded-full">active: {mask}</span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-m3-red uppercase tracking-widest">Unconfigured</span>
+                      )}
+                    </div>
+                    <div className="relative group">
+                      <input
+                        type={inputType}
+                        value={value}
+                        onChange={(e) => setSecretInputs({ ...secretInputs, [field.key]: e.target.value })}
+                        disabled={loading}
+                        placeholder={mask ? '••••••••••••••••' : 'Enter new key'}
+                        className="m3-input !pt-3 !pb-3 !h-12 !rounded-2xl"
+                        autoComplete="off"
+                      />
+                      {field.isPassword && (
+                        <button
+                          type="button"
+                          onClick={() => setRevealed({ ...revealed, [field.key as string]: !isRevealed })}
+                          className="absolute right-3 top-3 h-6 w-6 flex items-center justify-center text-m3-ink-faint hover:text-m3-primary transition-colors"
+                        >
+                          {isRevealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
+                    {field.warn && (
+                      <div className="flex items-center gap-1.5 px-1 text-[10px] font-bold text-m3-yellow uppercase tracking-widest leading-none">
+                        <AlertCircle className="h-3 w-3" />
+                        {field.warn}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Save Button */}
+      <div className="sticky bottom-0 pt-6 pb-2 bg-gradient-to-t from-white via-white to-transparent">
+        <button 
+          type="submit" 
+          disabled={loading} 
+          className="m3-btn-filled w-full h-14 text-base font-bold shadow-elev-2 hover:shadow-elev-4 transition-all"
+        >
+          {loading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Synchronizing Settings…</span>
+            </div>
+          ) : (
+            'Commit All Changes'
+          )}
         </button>
       </div>
 
       {typeof window !== 'undefined' && settings.publicUrl && <SyncQRPreview url={settings.publicUrl} />}
 
+      {/* Restart Dialog */}
       {restartPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h4 className="text-base font-semibold text-[#202124]">Restart required</h4>
-            <p className="mt-2 text-sm text-[#5f6368]">
-              Secret or environment values changed. The backend must restart to apply them. Restart now?
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-m3-on-surface/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-md m3-card bg-white p-8 shadow-elev-5 animate-in scale-in-95 duration-300">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-m3-primary-container text-m3-on-primary-container mb-6">
+              <RefreshCcw className={`h-7 w-7 ${restarting ? 'animate-spin' : ''}`} />
+            </div>
+            <h4 className="m3-headline-s text-m3-ink">System Restart Required</h4>
+            <p className="mt-3 text-[14px] text-m3-ink-muted leading-relaxed">
+              Environment credentials or API secrets have been modified. The backend services must restart to authenticate with the new parameters.
             </p>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setRestartPrompt(false)}
                 disabled={restarting}
-                className="rounded-md border border-[#dadce0] px-4 py-2 text-sm font-medium text-[#3c4043] hover:bg-[#f8f9fa] disabled:opacity-50"
+                className="m3-btn-text h-12"
               >
                 Later
               </button>
@@ -293,9 +391,9 @@ export function SettingsForm() {
                 type="button"
                 onClick={onRestartNow}
                 disabled={restarting}
-                className="google-button-primary"
+                className="m3-btn-filled h-12 px-8 flex-1 sm:flex-none"
               >
-                {restarting ? 'Restarting…' : 'Restart now'}
+                {restarting ? 'Restarting…' : 'Restart Now'}
               </button>
             </div>
           </div>
@@ -310,9 +408,14 @@ function SyncQRPreview({ url }: { url: string }) {
     const preview = document.getElementById('qr-preview');
     if (preview && url) {
       preview.innerHTML = `
-        <div class="flex flex-col items-center gap-3 animate-in fade-in duration-500">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}" alt="QR Code" class="w-48 h-48 rounded shadow-sm border border-[#dadce0]" />
-          <span class="text-[11px] text-brand-600 font-medium truncate max-w-[200px] bg-brand-50 px-2 py-0.5 rounded-full">${url}</span>
+        <div class="flex flex-col items-center gap-4 animate-in zoom-in-95 fade-in duration-500">
+          <div class="p-2 bg-white rounded-2xl shadow-elev-1 border border-m3-outline-variant/30">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}" alt="QR Code" class="w-48 h-48 rounded-xl" />
+          </div>
+          <div class="flex items-center gap-2 px-4 py-1.5 rounded-full bg-m3-primary-container/20 border border-m3-primary/10">
+            <div class="h-1.5 w-1.5 rounded-full bg-m3-primary animate-pulse" />
+            <span class="text-[11px] font-bold text-m3-primary truncate max-w-[200px] tracking-tight">${url.replace(/^https?:\/\//, '')}</span>
+          </div>
         </div>
       `;
     }
