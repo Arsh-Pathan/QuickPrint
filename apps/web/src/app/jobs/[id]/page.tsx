@@ -39,6 +39,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const toast = useToast();
   const [jobName, setJobName] = useState<string>('');
   const [initialStatus, setInitialStatus] = useState<PrintJobStatus>('created');
+  const [loading, setLoading] = useState(true);
 
   // Live socket state — drives everything below.
   const live = useJobSocket(id, { status: initialStatus }, (next, prev) => {
@@ -61,7 +62,8 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       if (cancelled) return;
       setJobName(j.fileName);
       if (j.status) setInitialStatus(j.status as PrintJobStatus);
-    });
+      setLoading(false);
+    }).catch(() => setLoading(false));
     api.queuePosition(id).then((q) => {
       if (cancelled || !q) return;
       // Surface as toast on first visit if the student is in line.
@@ -98,8 +100,12 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
           <ConnectionPill connected={live.connected} />
         </header>
 
-        {/* Pipeline (created → completed) */}
-        <Timeline status={live.status} />
+        {loading ? (
+          <JobSkeleton />
+        ) : (
+          <>
+            {/* Pipeline (created → completed) */}
+            <Timeline status={live.status} />
 
         {/* Status card */}
         <div className="m3-card mt-8 w-full !p-0 overflow-hidden shadow-elev-2 animate-scale-in">
@@ -107,7 +113,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
           <div className="p-8 sm:p-10">
             <div className="flex flex-col items-center text-center">
-              <div className={`mb-5 flex h-20 w-20 items-center justify-center rounded-full ${ui.bgColor}`}>
+              <div className={`mb-5 flex h-20 w-20 items-center justify-center rounded-full ${ui.bgColor} animate-[float_3s_ease-in-out_infinite]`}>
                 {ui.icon}
               </div>
               <h2 className="m3-headline-m text-m3-ink">{ui.title}</h2>
@@ -208,8 +214,47 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
         <footer className="mt-20">
           <p className="m3-section-eyebrow">Automation by AI &amp; ML Club</p>
         </footer>
+          </>
+        )}
       </div>
     </main>
+  );
+}
+
+function JobSkeleton() {
+  return (
+    <div className="w-full space-y-8 animate-pulse">
+      {/* Timeline skeleton */}
+      <div className="flex w-full items-center gap-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex flex-1 items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-m3-surface-container-high shrink-0" />
+            {i < 5 && <div className="h-1 flex-1 bg-m3-surface-container" />}
+          </div>
+        ))}
+      </div>
+
+      {/* Card skeleton */}
+      <div className="m3-card !p-0 overflow-hidden border-m3-outline-variant">
+        <div className="h-1.5 w-full bg-m3-surface-container-high" />
+        <div className="p-10 flex flex-col items-center">
+          <div className="h-20 w-20 rounded-full bg-m3-surface-container-high mb-6" />
+          <div className="h-8 w-48 bg-m3-surface-container-high rounded-lg mb-3" />
+          <div className="h-4 w-64 bg-m3-surface-container rounded-lg" />
+          
+          <div className="mt-10 w-full space-y-4 pt-8 border-t border-m3-outline-variant">
+            <div className="flex justify-between">
+              <div className="h-4 w-24 bg-m3-surface-container rounded" />
+              <div className="h-4 w-32 bg-m3-surface-container-high rounded" />
+            </div>
+            <div className="flex justify-between">
+              <div className="h-4 w-24 bg-m3-surface-container rounded" />
+              <div className="h-4 w-24 bg-m3-surface-container-high rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

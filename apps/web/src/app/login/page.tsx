@@ -72,7 +72,7 @@ function LoginForm() {
         </div>
 
         {/* Abstract printer/paper mark */}
-        <div className="absolute bottom-20 right-20 opacity-20 rotate-12 select-none">
+        <div className="absolute bottom-20 right-20 opacity-20 rotate-12 select-none animate-[float_8s_ease-in-out_infinite]">
            <Printer size={300} strokeWidth={0.5} className="text-m3-primary" />
         </div>
       </div>

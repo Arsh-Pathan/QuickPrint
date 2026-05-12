@@ -364,7 +364,7 @@ export default function UploadPage() {
                   if (e.target.files?.length) addFiles(e.target.files);
                 }}
               />
-              <div className={`flex h-20 w-20 items-center justify-center rounded-2xl transition-all duration-300 ${
+              <div className={`flex h-20 w-20 items-center justify-center rounded-2xl transition-all duration-300 animate-[float_4s_ease-in-out_infinite] ${
                 dragActive
                   ? 'bg-m3-primary text-white scale-110 shadow-elev-3'
                   : 'bg-m3-primary-container text-m3-on-primary-container group-hover:bg-m3-primary group-hover:text-white group-hover:scale-105'

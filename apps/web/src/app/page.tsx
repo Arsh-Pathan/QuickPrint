@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Printer, Upload, Smartphone, Zap, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Printer, Upload, Smartphone, Zap, ShieldCheck, CheckCircle2, CloudUpload } from 'lucide-react';
 import { Container } from '@/components/Container';
 import { Logo } from '@/components/Logo';
 
@@ -29,12 +29,12 @@ export default function HomePage() {
             The smartest way to print on campus. Upload any document, pay instantly via UPI, and pick up your prints in seconds.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/upload" className="m3-btn-filled h-14 px-10 text-base shadow-elev-3 hover:shadow-elev-4">
-              <Upload size={20} />
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <Link href="/upload" className="m3-btn-filled h-14 px-10 text-base shadow-elev-3 hover:shadow-elev-4 group transition-all active:scale-95">
+              <Upload size={20} className="group-hover:-translate-y-1 transition-transform" />
               Start Printing
             </Link>
-            <Link href="/login" className="m3-btn-outlined h-14 px-10 text-base">
+            <Link href="/login" className="m3-btn-outlined h-14 px-10 text-base hover:bg-m3-surface-container transition-colors">
               Student Login
             </Link>
           </div>
@@ -126,19 +126,22 @@ export default function HomePage() {
             </div>
 
             <div className="relative">
-              <div className="aspect-square rounded-3xl bg-m3-surface-container shadow-elev-1 overflow-hidden">
+              <div className="aspect-square rounded-3xl bg-m3-surface-container shadow-elev-1 overflow-hidden animate-[float_6s_ease-in-out_infinite]">
                 {/* Mock UI illustration / Image */}
                 <div className="absolute inset-0 bg-gradient-to-br from-m3-primary/10 to-m3-primary-container/40 p-12">
-                   <div className="h-full w-full rounded-2xl bg-white shadow-elev-4 p-6 border border-m3-outline-variant">
+                   <div className="h-full w-full rounded-2xl bg-white shadow-elev-4 p-6 border border-m3-outline-variant relative overflow-hidden">
+                      <div className="shimmer-bar" />
                       <div className="flex items-center justify-between mb-8">
                         <div className="h-6 w-32 bg-m3-surface-container rounded-full" />
                         <div className="h-10 w-10 rounded-full bg-m3-primary-container" />
                       </div>
                       <div className="space-y-4">
-                        <div className="h-32 w-full bg-m3-surface-container-low rounded-xl border border-dashed border-m3-outline" />
+                        <div className="h-32 w-full bg-m3-surface-container-low rounded-xl border border-dashed border-m3-outline flex items-center justify-center">
+                          <CloudUpload size={32} className="text-m3-outline animate-bounce" />
+                        </div>
                         <div className="h-4 w-2/3 bg-m3-surface-container rounded-full" />
                         <div className="h-4 w-full bg-m3-surface-container-low rounded-full" />
-                        <div className="mt-8 h-12 w-full bg-m3-primary rounded-full shadow-elev-2" />
+                        <div className="mt-8 h-12 w-full bg-m3-primary rounded-full shadow-elev-2 flex items-center justify-center text-white font-bold text-sm">Pay ₹20.00</div>
                       </div>
                    </div>
                 </div>
