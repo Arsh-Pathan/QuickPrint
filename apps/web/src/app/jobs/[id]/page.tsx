@@ -17,6 +17,8 @@ import {
   MessageCircle,
   Wifi,
   WifiOff,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useJobSocket } from '@/lib/use-job-socket';
@@ -42,6 +44,8 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const [initialStatus, setInitialStatus] = useState<PrintJobStatus>('created');
   const [jobDetails, setJobDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Live socket state — drives everything below.
   const live = useJobSocket(id, { status: initialStatus }, (next, prev) => {
@@ -66,7 +70,11 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       setJobDetails(j);
       if (j.status) setInitialStatus(j.status as PrintJobStatus);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err: any) => {
+      if (cancelled) return;
+      setFetchError(err?.message || 'Could not load job');
+      setLoading(false);
+    });
     api.queuePosition(id).then((q) => {
       if (cancelled || !q) return;
       // Surface as toast on first visit if the student is in line.
@@ -90,6 +98,20 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
   const ui = STATUS_UI[live.status] || STATUS_UI.created;
 
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const j = await api.getJob(id);
+      setJobDetails(j);
+      if (j.status) setInitialStatus(j.status as PrintJobStatus);
+      setFetchError(null);
+    } catch (err: any) {
+      toast.push(err?.message || 'Refresh failed', 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const waMessage = useMemo(
     () => encodeURIComponent(`QuickPrint job ${id.slice(0, 8).toUpperCase()} status: ${live.status}`),
     [id, live.status],
@@ -105,6 +127,15 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
         {loading ? (
           <JobSkeleton />
+        ) : fetchError ? (
+          <div className="m3-card w-full !p-8 text-center border-m3-red/20 bg-m3-red-container/10">
+            <AlertTriangle size={32} className="mx-auto mb-3 text-m3-red" />
+            <h2 className="m3-headline-s text-m3-ink">Couldn't load this job</h2>
+            <p className="mt-2 text-sm text-m3-ink-muted">{fetchError}</p>
+            <button onClick={refresh} disabled={refreshing} className="mt-6 m3-btn-filled h-12 px-6">
+              {refreshing ? <><Loader2 size={16} className="animate-spin" /> Retrying…</> : <><RefreshCw size={16} /> Try again</>}
+            </button>
+          </div>
         ) : (
           <>
             {/* Pipeline (created → completed) */}
@@ -123,7 +154,8 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
               <p className="mt-2 text-[15px] text-m3-ink-muted">{ui.subtitle}</p>
             </div>
 
-            {/* Queue position chip */}
+            {/* Queue position chip — only when we actually know the position */}
+            {typeof live.position === 'number' && typeof live.total === 'number' && live.total > 0 && (
               <div className="mt-8 flex items-center justify-center">
                 <div className="inline-flex items-center gap-2 rounded-full bg-m3-primary-container/30 px-5 py-2.5 text-sm font-bold text-m3-primary border border-m3-primary/10">
                   <span className="tabular-nums">#{live.position}</span>
@@ -132,6 +164,22 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                   <span className="text-m3-primary/40 text-[10px] uppercase tracking-widest px-1">in queue</span>
                 </div>
               </div>
+            )}
+
+            {/* Awaiting-payment recovery: webhook is the source of truth, give student a manual refresh */}
+            {live.status === 'created' && (
+              <button
+                onClick={refresh}
+                disabled={refreshing}
+                className="mt-8 m3-btn-outlined w-full h-12 text-sm"
+              >
+                {refreshing ? (
+                  <><Loader2 size={16} className="animate-spin" /> Checking…</>
+                ) : (
+                  <><RefreshCw size={16} /> Check payment status</>
+                )}
+              </button>
+            )}
 
             {/* Now-printing progress */}
             {live.status === 'printing' && live.pagesTotal ? (
@@ -188,6 +236,8 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                     color={jobDetails.color}
                     duplex={jobDetails.duplex}
                     paperSize={jobDetails.paperSize}
+                    copies={jobDetails.copies}
+                    pages={jobDetails.pages}
                   />
                 </div>
               </div>

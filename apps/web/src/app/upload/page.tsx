@@ -23,14 +23,9 @@ import { useAuth, usePrefs } from '@/lib/store';
 import { useToast } from '@/lib/toast';
 import { FilePreview } from '@/components/file-preview';
 import { Container } from '@/components/Container';
-import { calculatePrice, PaperSize, type PrintSettings } from '@quickprint/shared';
+import { calculatePrice, PaperSize, type PrintSettings, type PricingConfig } from '@quickprint/shared';
 import { loadRazorpay, preloadRazorpay } from '@/lib/razorpay';
-
-const PRICING_CONFIG = {
-  bwPaise: 200,
-  colorPaise: 1000,
-  duplexDiscountPct: 10,
-};
+import { usePricingConfig, usePublicShop } from '@/lib/use-pricing-config';
 
 // Retries confirmPayment on network errors and 5xx. Skips retry on 4xx (e.g. invalid_signature),
 // which are permanent. Webhook is the server-side safety net if all retries fail.
@@ -82,6 +77,8 @@ export default function UploadPage() {
   const prefs = usePrefs();
   const toast = useToast();
 
+  const pricingConfig = usePricingConfig();
+  const { data: shop } = usePublicShop();
   const [cart, setCart] = useState<CartFile[]>([]);
   const [step, setStep] = useState<'choose' | 'settings'>('choose');
   const [phase, setPhase] = useState<'idle' | 'processing' | 'syncing' | 'paying'>('idle');
@@ -135,7 +132,7 @@ export default function UploadPage() {
     () =>
       cart.reduce((sum, item) => {
         if (item.pages && item.appliedSettingsKey !== settingsKey) {
-          return sum + calculatePrice(item.pages, color ? item.pages : 0, currentSettings, PRICING_CONFIG).totalPaise;
+          return sum + calculatePrice(item.pages, color ? item.pages : 0, currentSettings, pricingConfig).totalPaise;
         }
         return sum + (item.pricePaise ?? 0);
       }, 0),
@@ -395,18 +392,24 @@ export default function UploadPage() {
               <div className="m3-card flex items-center gap-4 !p-4 border-m3-outline-variant">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-m3-surface-container text-[11px] font-bold text-m3-ink-muted">B&amp;W</div>
                 <div>
-                  <p className="text-sm font-bold text-m3-ink">₹2.00</p>
+                  <p className="text-sm font-bold text-m3-ink tabular-nums">₹{(pricingConfig.bwPaise / 100).toFixed(2)}</p>
                   <p className="text-[11px] text-m3-ink-faint">per page</p>
                 </div>
               </div>
               <div className="m3-card flex items-center gap-4 !p-4 border-m3-outline-variant">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-m3-primary-container text-[11px] font-bold text-m3-primary">Color</div>
                 <div>
-                  <p className="text-sm font-bold text-m3-ink">₹10.00</p>
+                  <p className="text-sm font-bold text-m3-ink tabular-nums">₹{(pricingConfig.colorPaise / 100).toFixed(2)}</p>
                   <p className="text-[11px] text-m3-ink-faint">per page</p>
                 </div>
               </div>
             </div>
+            {shop && !shop.acceptingJobs && (
+              <div className="mt-6 m3-card !p-4 border-m3-red/20 bg-m3-red-container/20">
+                <p className="text-sm font-bold text-m3-red">Shop is currently paused</p>
+                <p className="text-xs text-m3-ink-muted mt-1">{shop.shopName} isn't accepting new print jobs right now. Please try again later.</p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex w-full flex-col gap-6 lg:flex-row" style={{ animation: 'fadeInUp 0.3s ease-out' }}>
@@ -446,6 +449,8 @@ export default function UploadPage() {
                     duplex={duplex}
                     paperSize={paperSize}
                     settingsKey={settingsKey}
+                    pricingConfig={pricingConfig}
+                    onRetry={cf.status === 'error' && phase === 'idle' ? processAll : undefined}
                   />
                 ))}
               </div>
@@ -467,6 +472,8 @@ export default function UploadPage() {
                       color={color}
                       duplex={duplex}
                       paperSize={paperSize}
+                      copies={copies}
+                      pages={activePreview.pages}
                     />
                     <p className="text-[11px] text-m3-ink-faint">
                       Preview reflects the uploaded document. Color, paper size, and duplex are the print settings applied to checkout.
@@ -627,7 +634,7 @@ export default function UploadPage() {
   );
 }
 
-function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, paperSize, settingsKey }: {
+function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, paperSize, settingsKey, pricingConfig, onRetry }: {
   item: CartFile;
   selected: boolean;
   onSelect: () => void;
@@ -637,17 +644,27 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
   duplex: boolean;
   paperSize: PrintSettings['paperSize'];
   settingsKey: string;
+  pricingConfig: PricingConfig;
+  onRetry?: () => void;
 }) {
   const price = useMemo(
     () => {
       if (item.pages && item.appliedSettingsKey !== settingsKey) {
-        return calculatePrice(item.pages, color ? item.pages : 0, currentSettingsFromRow(color, duplex, copies, paperSize), PRICING_CONFIG).totalPaise;
+        return calculatePrice(item.pages, color ? item.pages : 0, currentSettingsFromRow(color, duplex, copies, paperSize), pricingConfig).totalPaise;
       }
       if (item.pricePaise) return item.pricePaise;
-      return calculatePrice(1, color ? 1 : 0, currentSettingsFromRow(color, duplex, copies, paperSize), PRICING_CONFIG).totalPaise;
+      return calculatePrice(1, color ? 1 : 0, currentSettingsFromRow(color, duplex, copies, paperSize), pricingConfig).totalPaise;
     },
-    [item.appliedSettingsKey, item.pages, item.pricePaise, settingsKey, color, duplex, copies, paperSize],
+    [item.appliedSettingsKey, item.pages, item.pricePaise, settingsKey, color, duplex, copies, paperSize, pricingConfig],
   );
+
+  const stageLabel: Record<FileStatus, string> = {
+    pending: 'Waiting',
+    uploading: 'Uploading',
+    analyzing: 'Analyzing',
+    ready: 'Ready',
+    error: 'Failed',
+  };
 
   const statusIcon = () => {
     switch (item.status) {
@@ -686,10 +703,16 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
         <p className="text-sm font-bold text-m3-ink truncate">{item.file.name}</p>
         <p className="text-[11px] text-m3-ink-muted">
           {(item.file.size / 1024 / 1024).toFixed(1)} MB
-          {item.pages ? ` · ${item.pages} pages` : ''}
+          {item.pages ? ` · ${item.pages} ${item.pages === 1 ? 'page' : 'pages'}` : ''}
           {item.status === 'ready' && item.appliedSettingsKey !== settingsKey ? ' · update quote' : ''}
+          {item.status === 'pending' || item.status === 'uploading' || item.status === 'analyzing' ? ` · ${stageLabel[item.status]}…` : ''}
           {item.status === 'error' && item.error ? ` · ${item.error}` : ''}
         </p>
+        {(item.status === 'uploading' || item.status === 'analyzing') && (
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-m3-surface-container">
+            <div className={`h-full bg-m3-primary ${item.status === 'uploading' ? 'w-1/2' : 'w-[85%]'} transition-all duration-700`} />
+          </div>
+        )}
       </div>
 
       <div className="text-right shrink-0">
@@ -698,13 +721,23 @@ function CartItem({ item, selected, onSelect, onRemove, copies, color, duplex, p
         </p>
         {item.pages && (
           <p className="text-[10px] text-m3-ink-faint font-medium">
-            {item.pages} {item.pages === 1 ? 'page' : 'pages'} × ₹{( (color ? PRICING_CONFIG.colorPaise : PRICING_CONFIG.bwPaise) / 100).toFixed(2)}
+            {item.pages} {item.pages === 1 ? 'page' : 'pages'} × ₹{( (color ? pricingConfig.colorPaise : pricingConfig.bwPaise) / 100).toFixed(2)}
           </p>
         )}
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
         {statusIcon()}
+        {item.status === 'error' && onRetry && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRetry(); }}
+            title="Retry this file"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-m3-ink-faint hover:bg-m3-primary-container hover:text-m3-primary transition-colors"
+          >
+            <Loader2 size={14} />
+          </button>
+        )}
         {onRemove && item.status !== 'uploading' && item.status !== 'analyzing' && (
           <button
             type="button"

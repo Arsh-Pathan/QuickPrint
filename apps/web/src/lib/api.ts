@@ -105,5 +105,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  getPrinters: () => http<any[]>('/printers'),
+  publicSettings: () =>
+    http<{
+      shopName: string;
+      acceptingJobs: boolean;
+      defaultPaperSize: string;
+      bwPaise: number;
+      colorPaise: number;
+      duplexDiscountPct: number;
+    }>('/settings/public'),
 };
