@@ -1,6 +1,6 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, RotateCcw, Inbox, Loader2, Signal, SignalLow, SignalZero, ArrowUpRight, Search, ListOrdered, Clock, FileText } from 'lucide-react';
+import { X, RotateCcw, Inbox, Loader2, Signal, SignalLow, SignalZero, ArrowUpRight, Search, ListOrdered, Clock, FileText, CheckCircle2, RefreshCcw } from 'lucide-react';
 import { api, type QueueItem } from '@/lib/api';
 import { useSocketStatus } from '@/lib/socket';
 import { rupees, formatEta } from '@/lib/format';
@@ -16,12 +16,26 @@ export default function QueuePage() {
     refetchInterval: 10_000,
   });
 
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['queue'] });
+    qc.invalidateQueries({ queryKey: ['admin-stats'] });
+    qc.invalidateQueries({ queryKey: ['admin-jobs'] });
+  };
+
+  const markPrinted = useMutation({
+    mutationFn: (jobId: string) => api.post<void>(`/print-jobs/admin/${jobId}/mark-printed`, {}),
+    onSuccess: invalidate,
+  });
+
+  const requeue = useMutation({
+    mutationFn: (jobId: string) => api.post<void>(`/print-jobs/admin/${jobId}/requeue`, {}),
+    onSuccess: invalidate,
+  });
+
   const cancel = useMutation({
-    mutationFn: (jobId: string) => api.delete<void>(`/queue/${jobId}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['queue'] });
-      qc.invalidateQueries({ queryKey: ['admin-stats'] });
-    },
+    mutationFn: ({ jobId, reason }: { jobId: string; reason?: string }) =>
+      api.post<void>(`/print-jobs/admin/${jobId}/cancel`, { reason }),
+    onSuccess: invalidate,
   });
 
   const items = data ?? [];
@@ -83,8 +97,21 @@ export default function QueuePage() {
                     key={item.jobId}
                     index={i + 1}
                     item={item}
-                    cancelling={cancel.isPending && cancel.variables === item.jobId}
-                    onCancel={() => cancel.mutate(item.jobId)}
+                    busy={
+                      (cancel.isPending && cancel.variables?.jobId === item.jobId) ||
+                      (markPrinted.isPending && markPrinted.variables === item.jobId) ||
+                      (requeue.isPending && requeue.variables === item.jobId)
+                    }
+                    onMarkPrinted={() => markPrinted.mutate(item.jobId)}
+                    onRequeue={() => requeue.mutate(item.jobId)}
+                    onCancel={() => {
+                      const reason = window.prompt(
+                        `Cancel "${item.job.fileName}"?\nThe student will need to be refunded manually if paid.\n\nReason (optional):`,
+                        '',
+                      );
+                      if (reason === null) return; // user pressed Cancel in the prompt
+                      cancel.mutate({ jobId: item.jobId, reason: reason || undefined });
+                    }}
                   />
                 ))}
               </tbody>
@@ -110,14 +137,22 @@ export default function QueuePage() {
 function QueueRow({
   index,
   item,
-  cancelling,
+  busy,
+  onMarkPrinted,
+  onRequeue,
   onCancel,
 }: {
   index: number;
   item: QueueItem;
-  cancelling: boolean;
+  busy: boolean;
+  onMarkPrinted: () => void;
+  onRequeue: () => void;
   onCancel: () => void;
 }) {
+  const status = item.job.status;
+  const canMarkPrinted = status === 'PRINTING' || status === 'QUEUED';
+  const canRequeue = status === 'FAILED' || status === 'CANCELLED' || status === 'PRINTING';
+  const canCancel = status !== 'COMPLETED' && status !== 'CANCELLED';
   const settings: string[] = [];
   settings.push(item.job.color ? 'Color' : 'B&W');
   if (item.job.duplex) settings.push('Duplex');
@@ -164,17 +199,33 @@ function QueueRow({
         {formatEta(item.etaSeconds)}
       </td>
       <td className="px-8 py-6 text-right">
-        <button
-          onClick={onCancel}
-          disabled={cancelling}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-m3-ink-faint transition-all hover:bg-m3-red-container hover:text-m3-red hover:shadow-sm disabled:opacity-30 active:scale-90"
-        >
-          {cancelling ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
+        <div className="inline-flex items-center gap-1.5">
+          {busy && <Loader2 className="h-4 w-4 animate-spin text-m3-primary mr-1" />}
+          <button
+            onClick={onMarkPrinted}
+            disabled={busy || !canMarkPrinted}
+            title="Mark as printed (Maddy handed it off manually)"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-m3-ink-faint transition-all hover:bg-m3-green-container hover:text-m3-green hover:shadow-sm disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-m3-ink-faint active:scale-90"
+          >
+            <CheckCircle2 className="h-5 w-5" />
+          </button>
+          <button
+            onClick={onRequeue}
+            disabled={busy || !canRequeue}
+            title="Requeue this job"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-m3-ink-faint transition-all hover:bg-m3-primary-container hover:text-m3-primary hover:shadow-sm disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-m3-ink-faint active:scale-90"
+          >
+            <RefreshCcw className="h-5 w-5" />
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={busy || !canCancel}
+            title="Cancel & mark for refund"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-m3-ink-faint transition-all hover:bg-m3-red-container hover:text-m3-red hover:shadow-sm disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-m3-ink-faint active:scale-90"
+          >
             <X className="h-5 w-5" />
-          )}
-        </button>
+          </button>
+        </div>
       </td>
     </tr>
   );
