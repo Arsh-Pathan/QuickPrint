@@ -47,6 +47,13 @@ enum PrinterStatus {
   ERROR
 }
 
+enum PrinterCategory {
+  GENERAL
+  LONG
+  SHORT
+  COLOR
+}
+
 enum PaperSize {
   A4
   A3
@@ -91,15 +98,18 @@ model Shop {
 }
 
 model Printer {
-  id            String        @id @default(cuid())
+  id            String          @id @default(cuid())
   shopId        String
   name          String
   driver        String?
-  supportsColor Boolean       @default(false)
-  supportsDuplex Boolean      @default(false)
-  status        PrinterStatus @default(OFFLINE)
+  supportsColor Boolean         @default(false)
+  supportsDuplex Boolean        @default(false)
+  enabled       Boolean         @default(false)
+  category      PrinterCategory @default(GENERAL)
+  longPagesThreshold Int        @default(20)
+  status        PrinterStatus   @default(OFFLINE)
   lastSeenAt    DateTime?
-  createdAt     DateTime      @default(now())
+  createdAt     DateTime        @default(now())
 
   shop      Shop                    @relation(fields: [shopId], references: [id])
   health    PrinterHealthSnapshot[]

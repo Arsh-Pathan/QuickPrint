@@ -69,6 +69,11 @@ export class PrintersService {
       const supportsDuplex = p.supportsDuplex !== undefined ? Boolean(p.supportsDuplex) : true;
 
       try {
+        // For new printers we seed capabilities from the agent's report,
+        // but `enabled` stays false until the admin confirms setup.
+        // For existing printers we only sync runtime fields (status, lastSeenAt, name);
+        // capabilities + category + enabled are admin-controlled and must NOT be
+        // overwritten by the agent's heartbeat.
         await this.prisma.printer.upsert({
           where: { id: pid },
           create: {
@@ -77,14 +82,14 @@ export class PrintersService {
             name: pname,
             supportsColor,
             supportsDuplex,
+            enabled: false,
+            category: 'GENERAL',
             status,
             lastSeenAt: now,
           },
           update: {
             name: pname,
             shopId,
-            supportsColor,
-            supportsDuplex,
             status,
             lastSeenAt: now,
           },
@@ -93,6 +98,33 @@ export class PrintersService {
         this.logger.warn(`printer upsert failed for ${pid}: ${(err as Error).message}`);
       }
     }
+  }
+
+  async update(
+    id: string,
+    patch: {
+      name?: string;
+      supportsColor?: boolean;
+      supportsDuplex?: boolean;
+      enabled?: boolean;
+      category?: 'GENERAL' | 'LONG' | 'SHORT' | 'COLOR';
+      longPagesThreshold?: number;
+    },
+  ) {
+    const existing = await this.prisma.printer.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    return this.prisma.printer.update({
+      where: { id },
+      data: {
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.supportsColor !== undefined ? { supportsColor: patch.supportsColor } : {}),
+        ...(patch.supportsDuplex !== undefined ? { supportsDuplex: patch.supportsDuplex } : {}),
+        ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+        ...(patch.category !== undefined ? { category: patch.category } : {}),
+        ...(patch.longPagesThreshold !== undefined ? { longPagesThreshold: patch.longPagesThreshold } : {}),
+      },
+    });
   }
 }
 

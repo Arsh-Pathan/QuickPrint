@@ -182,7 +182,7 @@ export class PrintJobsService {
     await this.queue.enqueue(job.id, shopId, job.priority);
     this.realtime.emitJobStatus(job.id, 'queued');
 
-    const printer = await this.pickPrinter(shopId, job);
+    const printer = await this.pickPrinter(shopId, { ...job, pages: job.pages });
     const downloadUrl = await this.files.download(job.fileKey);
 
     let assigned = false;
@@ -218,7 +218,7 @@ export class PrintJobsService {
 
     let assigned = 0;
     for (const entry of entries) {
-      const printer = await this.pickPrinter(shopId, entry.job);
+      const printer = await this.pickPrinter(shopId, { ...entry.job, pages: entry.job.pages });
       if (!printer) continue;
 
       const downloadUrl = await this.files.download(entry.job.fileKey);
@@ -242,18 +242,30 @@ export class PrintJobsService {
   }
 
   /**
-   * Strategic printer selection. 
-   * Strictly routes jobs based on the session's color requirement.
-   * Color jobs MUST go to a printer with 'supportsColor: true'.
-   * Color jobs MUST go to a printer with 'supportsColor: true'.
+   * Strategic printer selection.
+   *
+   * Hard filters (must hold):
+   *   - enabled = true (admin-confirmed setup)
+   *   - status = ONLINE
+   *   - supportsColor if the job is color
+   *   - supportsDuplex if the job wants duplex (relaxed as a last resort)
+   *
+   * Preference order among capable printers:
+   *   1. The category that best matches the job
+   *      - color job  → prefer COLOR
+   *      - pages >= longPagesThreshold → prefer LONG
+   *      - pages <  longPagesThreshold → prefer SHORT
+   *      - GENERAL acts as a wildcard fallback
+   *   2. Most recently seen (lastSeenAt desc)
    */
-  private async pickPrinter(shopId: string, job: { color: boolean; duplex: boolean; printerId?: string | null }): Promise<{ id: string; [k: string]: unknown } | null> {
-    // If a specific printer was requested, check if it exists and is online
+  private async pickPrinter(
+    shopId: string,
+    job: { color: boolean; duplex: boolean; pages?: number; printerId?: string | null },
+  ): Promise<{ id: string; [k: string]: unknown } | null> {
+    // Explicit printer request: only honor it if the printer is enabled + capable.
     if (job.printerId) {
-      const target = await this.prisma.printer.findUnique({
-        where: { id: job.printerId }
-      });
-      if (target && target.status === 'ONLINE') {
+      const target = await this.prisma.printer.findUnique({ where: { id: job.printerId } });
+      if (target && target.enabled && target.status === 'ONLINE') {
         const canColor = !job.color || target.supportsColor;
         const canDuplex = !job.duplex || target.supportsDuplex;
         if (canColor && canDuplex) {
@@ -265,19 +277,47 @@ export class PrintJobsService {
     const candidates = await this.prisma.printer.findMany({
       where: {
         shopId,
+        enabled: true,
         status: 'ONLINE',
         ...(job.color ? { supportsColor: true } : {}),
         ...(job.duplex ? { supportsDuplex: true } : {}),
       },
-      // Prefer the most recently seen active printer
       orderBy: { lastSeenAt: 'desc' },
     });
-    
-    // If no exact match found for duplex + color, try without duplex constraint
-    if (candidates.length === 0 && job.duplex) {
-      return this.pickPrinter(shopId, { ...job, duplex: false });
+
+    if (candidates.length === 0) {
+      // Last resort: if a duplex job has no duplex-capable printer, fall back to simplex.
+      if (job.duplex) {
+        return this.pickPrinter(shopId, { ...job, duplex: false });
+      }
+      return null;
     }
 
-    return candidates[0] ?? null;
+    // Score each candidate against the job's preferred category.
+    const preferredCategory = this.preferredCategory(job);
+    const scored = candidates
+      .map((c) => ({ printer: c, score: this.categoryScore(c.category, preferredCategory) }))
+      .sort((a, b) => b.score - a.score);
+
+    return scored[0]?.printer ?? null;
+  }
+
+  private preferredCategory(job: { color: boolean; pages?: number }): 'COLOR' | 'LONG' | 'SHORT' | 'GENERAL' {
+    if (job.color) return 'COLOR';
+    // We don't know per-printer thresholds yet; routing uses a default 20-page cutoff.
+    // The per-printer threshold still gates whether a LONG printer accepts the job.
+    const pages = job.pages ?? 0;
+    if (pages >= 20) return 'LONG';
+    if (pages > 0) return 'SHORT';
+    return 'GENERAL';
+  }
+
+  private categoryScore(
+    candidate: string,
+    preferred: 'COLOR' | 'LONG' | 'SHORT' | 'GENERAL',
+  ): number {
+    if (candidate === preferred) return 3;
+    if (candidate === 'GENERAL') return 2; // GENERAL is a universal fallback.
+    return 1;
   }
 }

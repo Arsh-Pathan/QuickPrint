@@ -47,6 +47,9 @@ model Printer {
   driver        String?
   supportsColor Boolean       @default(false)
   supportsDuplex Boolean      @default(false)
+  enabled       Boolean       @default(false)
+  category      String        @default("GENERAL") // PrinterCategory enum -> String
+  longPagesThreshold Int      @default(20)
   status        String        @default("OFFLINE") // PrinterStatus enum -> String
   lastSeenAt    DateTime?
   createdAt     DateTime      @default(now())

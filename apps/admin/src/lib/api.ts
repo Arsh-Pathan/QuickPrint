@@ -57,6 +57,8 @@ export const api = {
     request<T>(path, { method: 'POST', body: JSON.stringify(data) }),
   put: <T>(path: string, data: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(data) }),
+  patch: <T>(path: string, data: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
@@ -108,6 +110,8 @@ export interface QueueItem {
   job: PrintJob;
 }
 
+export type PrinterCategory = 'GENERAL' | 'LONG' | 'SHORT' | 'COLOR';
+
 export interface PrinterRow {
   id: string;
   shopId: string;
@@ -116,6 +120,9 @@ export interface PrinterRow {
   status: PrinterStatusEnum;
   supportsColor: boolean;
   supportsDuplex: boolean;
+  enabled: boolean;
+  category: PrinterCategory;
+  longPagesThreshold: number;
   lastSeenAt: string | null;
 }
 
