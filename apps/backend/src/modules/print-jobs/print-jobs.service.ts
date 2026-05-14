@@ -97,6 +97,54 @@ export class PrintJobsService {
     return this.normalize(updated);
   }
 
+  /**
+   * Clone a completed/failed/cancelled job into a fresh CREATED job.
+   * Reuses the existing fileKey + analysis (no re-upload, no re-analysis).
+   * Optional `settings` override; otherwise we keep the source job's settings.
+   */
+  async reprint(userId: string, sourceId: string, settings?: CreatePrintJobDto['settings']) {
+    const source = await this.prisma.printJob.findUnique({ where: { id: sourceId } });
+    if (!source) throw new NotFoundException('job_not_found');
+    if (source.ownerId !== userId) throw new ForbiddenException('not_owner');
+    if (!['COMPLETED', 'FAILED', 'CANCELLED'].includes(source.status)) {
+      throw new BadRequestException('source_not_reprintable');
+    }
+
+    const effective = settings ?? {
+      color: source.color,
+      duplex: source.duplex,
+      copies: source.copies,
+      paperSize: source.paperSize as any,
+      pageRange: source.pageRange ?? undefined,
+    };
+
+    const breakdown = await this.pricing.quote(source.pages, source.colorPages, effective);
+
+    const job = await this.prisma.printJob.create({
+      data: {
+        ownerId: userId,
+        fileKey: source.fileKey,
+        fileName: source.fileName,
+        fileSize: source.fileSize,
+        mimeType: source.mimeType,
+        fileHash: source.fileHash,
+        pages: source.pages,
+        colorPages: source.colorPages,
+        color: effective.color,
+        duplex: effective.duplex,
+        copies: effective.copies,
+        paperSize: effective.paperSize?.toUpperCase() as any,
+        pageRange: effective.pageRange,
+        priceTotalPaise: breakdown.totalPaise,
+        priceBreakdown: JSON.stringify(breakdown) as any,
+        shopId: source.shopId,
+      },
+    });
+
+    this.logger.log(`Reprint: job ${job.id} cloned from ${sourceId} (user=${userId})`);
+    return this.normalize(job);
+  }
+
   async listForUser(userId: string) {
     const jobs = await this.prisma.printJob.findMany({
       where: { ownerId: userId },

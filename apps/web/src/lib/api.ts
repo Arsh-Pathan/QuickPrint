@@ -105,6 +105,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  reprintJob: (sourceId: string, settings?: PrintSettings) =>
+    http<{ id: string; priceTotalPaise: number; pages: number }>(`/print-jobs/${sourceId}/reprint`, {
+      method: 'POST',
+      body: JSON.stringify(settings ? { settings } : {}),
+    }),
   publicSettings: () =>
     http<{
       shopName: string;

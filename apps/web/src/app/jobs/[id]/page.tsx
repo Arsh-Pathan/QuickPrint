@@ -19,6 +19,7 @@ import {
   WifiOff,
   RefreshCw,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useJobSocket } from '@/lib/use-job-socket';
@@ -30,6 +31,7 @@ import {
   sendBrowserNotification,
   playChime,
 } from '@/lib/notify';
+import { loadRazorpay } from '@/lib/razorpay';
 import type { PrintJobStatus } from '@quickprint/shared';
 
 const PIPELINE: PrintJobStatus[] = ['created', 'paid', 'queued', 'printing', 'completed'];
@@ -109,6 +111,60 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
       toast.push(err?.message || 'Refresh failed', 'error');
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const [reprinting, setReprinting] = useState(false);
+
+  const reprint = async () => {
+    setReprinting(true);
+    try {
+      const cloned = await api.reprintJob(id);
+      const [loaded] = await Promise.all([loadRazorpay()]);
+      if (!loaded) throw new Error('Razorpay SDK failed to load');
+
+      const order = await api.createOrder(cloned.id);
+      await new Promise<void>((resolve, reject) => {
+        const options = {
+          key: order.keyId,
+          amount: order.amountPaise,
+          currency: 'INR',
+          name: 'QuickPrint',
+          description: `Reprint of ${jobName || 'document'}`,
+          order_id: order.orderId,
+          handler: async (response: any) => {
+            try {
+              await api.confirmPayment({
+                orderId: response.razorpay_order_id,
+                paymentId: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              });
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+          modal: { ondismiss: () => reject(new Error('Payment cancelled')) },
+          prefill: {
+            contact: user?.phone ?? undefined,
+            name: user?.name ?? undefined,
+            vpa: order.keyId.startsWith('rzp_test_') ? 'success@razorpay' : undefined,
+          },
+          theme: { color: '#1a73e8' },
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      });
+
+      router.push(`/jobs/${cloned.id}`);
+    } catch (err: any) {
+      if (err?.message === 'Payment cancelled') {
+        toast.push('Payment cancelled', 'info');
+      } else {
+        toast.push(err?.message || 'Reprint failed', 'error');
+      }
+    } finally {
+      setReprinting(false);
     }
   };
 
@@ -250,6 +306,21 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                   ✨ Collect your prints at the counter
                 </p>
               </div>
+            )}
+
+            {/* Reprint CTA — terminal states only */}
+            {(live.status === 'completed' || live.status === 'failed' || live.status === 'cancelled') && (
+              <button
+                onClick={reprint}
+                disabled={reprinting}
+                className="mt-8 m3-btn-filled w-full h-14"
+              >
+                {reprinting ? (
+                  <><Loader2 size={18} className="animate-spin" /> Preparing reprint…</>
+                ) : (
+                  <><RotateCcw size={18} /> Reprint this</>
+                )}
+              </button>
             )}
 
             {/* WhatsApp share / save link */}

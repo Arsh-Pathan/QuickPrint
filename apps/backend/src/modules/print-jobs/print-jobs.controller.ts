@@ -22,6 +22,15 @@ export class PrintJobsController {
     return this.jobs.create(req.user.userId, dto);
   }
 
+  @Post(':id/reprint')
+  reprint(
+    @Req() req: { user: { userId: string } },
+    @Param('id') id: string,
+    @Body() body: { settings?: CreatePrintJobDto['settings'] } = {},
+  ) {
+    return this.jobs.reprint(req.user.userId, id, body.settings);
+  }
+
   @Patch(':id/settings')
   updateSettings(
     @Req() req: { user: { userId: string } },
