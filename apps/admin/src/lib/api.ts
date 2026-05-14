@@ -62,10 +62,9 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
-export { ApiError };
 
 // ── Domain types ────────────────────────────────────────────────────────────
-export type PrintJobStatus =
+type PrintJobStatus =
   | 'CREATED'
   | 'PAID'
   | 'QUEUED'
@@ -74,7 +73,7 @@ export type PrintJobStatus =
   | 'FAILED'
   | 'CANCELLED';
 
-export type PrinterStatusEnum =
+type PrinterStatusEnum =
   | 'ONLINE'
   | 'OFFLINE'
   | 'BUSY'

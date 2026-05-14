@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 
 export const JWT_SECRET_TOKEN = 'JWT_SECRET_RESOLVED';
 
-export async function resolveJwtSecret(prisma: PrismaService, cfg: ConfigService): Promise<string> {
+async function resolveJwtSecret(prisma: PrismaService, cfg: ConfigService): Promise<string> {
   try {
     const row = await prisma.setting.findUnique({ where: { key: 'shop' } });
     if (row?.value) {
