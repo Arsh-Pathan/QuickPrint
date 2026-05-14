@@ -1,4 +1,5 @@
 'use client';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, RotateCcw, Inbox, Loader2, Signal, SignalLow, SignalZero, ArrowUpRight, Search, ListOrdered, Clock, FileText, CheckCircle2, RefreshCcw } from 'lucide-react';
 import { api, type QueueItem } from '@/lib/api';
@@ -6,9 +7,14 @@ import { useSocketStatus } from '@/lib/socket';
 import { rupees, formatEta } from '@/lib/format';
 import { SHOP_ID } from '@/lib/config';
 
+const STATUS_FILTERS = ['ALL', 'QUEUED', 'PRINTING', 'FAILED'] as const;
+type StatusFilter = typeof STATUS_FILTERS[number];
+
 export default function QueuePage() {
   const status = useSocketStatus();
   const qc = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['queue', SHOP_ID],
@@ -38,7 +44,19 @@ export default function QueuePage() {
     onSuccess: invalidate,
   });
 
-  const items = data ?? [];
+  const allItems = data ?? [];
+  const items = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return allItems.filter((it) => {
+      if (statusFilter !== 'ALL' && it.job.status !== statusFilter) return false;
+      if (!needle) return true;
+      return (
+        it.jobId.toLowerCase().includes(needle) ||
+        it.job.fileName.toLowerCase().includes(needle)
+      );
+    });
+  }, [allItems, search, statusFilter]);
+  const filtered = items.length !== allItems.length;
 
   return (
     <div className="space-y-10 py-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
@@ -50,24 +68,60 @@ export default function QueuePage() {
           </div>
           <h1 className="m3-display-s text-m3-ink tracking-tight">Active Queue</h1>
           <p className="text-[15px] text-m3-ink-muted">
-            {items.length === 0
+            {allItems.length === 0
               ? 'Standby mode — no active print jobs.'
-              : `${items.length} prioritized tasks currently in flight.`}
+              : filtered
+              ? `${items.length} of ${allItems.length} jobs match filters.`
+              : `${allItems.length} prioritized tasks currently in flight.`}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="relative group hidden sm:block">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-m3-ink-faint group-focus-within:text-m3-primary transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Search by ID or File..." 
-              className="h-12 w-64 pl-11 pr-4 bg-m3-surface-container-low border border-m3-outline-variant/30 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-m3-primary/20 focus:border-m3-primary transition-all" 
+            <input
+              type="text"
+              placeholder="Search by ID or File..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-12 w-64 pl-11 pr-9 bg-m3-surface-container-low border border-m3-outline-variant/30 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-m3-primary/20 focus:border-m3-primary transition-all"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded-full text-m3-ink-faint hover:bg-m3-surface-container hover:text-m3-ink"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
           <ConnectionBadge status={status} />
         </div>
       </header>
+
+      <div className="flex flex-wrap items-center gap-2 px-2">
+        {STATUS_FILTERS.map((s) => {
+          const active = statusFilter === s;
+          const count =
+            s === 'ALL'
+              ? allItems.length
+              : allItems.filter((it) => it.job.status === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`h-9 px-4 rounded-full text-[11px] font-black uppercase tracking-[0.18em] border transition-all ${
+                active
+                  ? 'bg-m3-primary text-m3-on-primary border-m3-primary shadow-elev-1'
+                  : 'bg-m3-surface-container-low text-m3-ink-muted border-m3-outline-variant/30 hover:bg-m3-surface-container'
+              }`}
+            >
+              {s.toLowerCase()} <span className="opacity-60 ml-1 tabular-nums">{count}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <div className="m3-card overflow-hidden !p-0 bg-white/40 backdrop-blur-md shadow-elev-2 border-m3-outline-variant/40">
         {isLoading ? (
@@ -75,7 +129,11 @@ export default function QueuePage() {
         ) : isError ? (
           <ErrorRow onRetry={() => refetch()} />
         ) : items.length === 0 ? (
-          <EmptyRow />
+          filtered ? (
+            <NoMatchesRow onReset={() => { setSearch(''); setStatusFilter('ALL'); }} />
+          ) : (
+            <EmptyRow />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -228,6 +286,23 @@ function QueueRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function NoMatchesRow({ onReset }: { onReset: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+      <div className="mb-6 h-20 w-20 rounded-3xl bg-m3-surface-container flex items-center justify-center mx-auto border border-m3-outline-variant/20">
+        <Search className="h-9 w-9 text-m3-ink-faint" />
+      </div>
+      <h3 className="m3-headline-s text-m3-ink font-black tracking-tight">No matches</h3>
+      <p className="mt-2 text-sm text-m3-ink-muted max-w-xs leading-relaxed font-medium">
+        Nothing in the queue matches your current search and filters.
+      </p>
+      <button onClick={onReset} className="mt-6 m3-btn-text h-11 px-6 font-bold">
+        Clear filters
+      </button>
+    </div>
   );
 }
 
