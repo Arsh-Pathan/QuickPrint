@@ -65,7 +65,14 @@
       "Bash(npm view *)",
       "Bash(node *)",
       "Bash(npx nest *)",
-      "Bash(grep -ao \"workerSrc[\\\\\"' ]*[:=][^,;{}]*\" node_modules/pdf-parse/dist/pdf-parse/cjs/index.cjs)"
+      "Bash(grep -ao \"workerSrc[\\\\\"' ]*[:=][^,;{}]*\" node_modules/pdf-parse/dist/pdf-parse/cjs/index.cjs)",
+      "Bash(npm --workspace apps/web run typecheck)",
+      "Bash(npm test *)",
+      "Bash(git reset *)",
+      "Bash(npx prisma *)",
+      "Bash(npx --workspace apps/backend prisma db push --schema=apps/backend/prisma/schema.sqlite.prisma --skip-generate --accept-data-loss)",
+      "Bash(npm --workspace @quickprint/backend exec -- prisma db push --schema=prisma/schema.sqlite.prisma --skip-generate --accept-data-loss)",
+      "Bash(npm --workspace @quickprint/backend run typecheck)"
     ]
   }
 }

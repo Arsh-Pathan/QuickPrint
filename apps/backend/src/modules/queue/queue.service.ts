@@ -4,8 +4,10 @@ import { Prisma } from '@prisma/client';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { FilesService } from '../files/files.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { SettingsService } from '../settings/settings.service';
 
 const SECONDS_PER_PAGE = 4;
+const DEFAULT_SHOP_ID = process.env.SHOP_ID ?? 'shop_local_dev';
 
 @Injectable()
 export class QueueService {
@@ -16,7 +18,24 @@ export class QueueService {
     private readonly realtime: RealtimeGateway,
     private readonly files: FilesService,
     private readonly audit: AuditLogService,
+    private readonly settings: SettingsService,
   ) {}
+
+  /**
+   * Anonymous queue snapshot for the home page. No PII — just counts and
+   * a coarse ETA so the student can decide whether to upload now or come back.
+   */
+  async publicSnapshot(shopId = DEFAULT_SHOP_ID) {
+    const entries = await this.list(shopId);
+    const s = await this.settings.get().catch(() => null);
+    const last = entries[entries.length - 1];
+    const etaSeconds = last?.etaSeconds ?? 0;
+    return {
+      jobsInQueue: entries.length,
+      etaMinutes: Math.max(0, Math.ceil(etaSeconds / 60)),
+      acceptingJobs: s?.acceptingJobs ?? true,
+    };
+  }
 
   async enqueue(jobId: string, shopId: string, priority = 0) {
     const entry = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {

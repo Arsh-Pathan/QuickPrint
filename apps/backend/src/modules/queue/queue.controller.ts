@@ -6,18 +6,26 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 
 @ApiTags('queue')
-@ApiBearerAuth()
 @Controller('queue')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
 export class QueueController {
   constructor(private readonly queue: QueueService) {}
 
+  /** Anonymous snapshot — used by the home page to show "≈N min wait". */
+  @Get('public')
+  publicSnapshot(@Query('shopId') shopId?: string) {
+    return this.queue.publicSnapshot(shopId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN', 'AGENT')
   @Get()
   list(@Query('shopId') shopId = 'default') {
     return this.queue.list(shopId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles('ADMIN')
   @Delete(':jobId')
   cancel(@Param('jobId') jobId: string) {

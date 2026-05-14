@@ -5,6 +5,7 @@ import { PricingService } from '../pricing/pricing.service';
 import { FilesService } from '../files/files.service';
 import { QueueService } from '../queue/queue.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type { CreatePrintJobDto } from '@quickprint/shared';
 
 @Injectable()
@@ -23,7 +24,109 @@ export class PrintJobsService {
     private readonly files: FilesService,
     private readonly queue: QueueService,
     private readonly realtime: RealtimeGateway,
+    private readonly audit: AuditLogService,
   ) {}
+
+  // ─── Admin job interventions ────────────────────────────────────────────────
+
+  /** Force a job into COMPLETED state. Used when Maddy hands the print over
+   *  manually (e.g. the agent crashed mid-job but the print actually finished). */
+  async adminMarkPrinted(jobId: string) {
+    const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('job_not_found');
+    if (job.status === 'COMPLETED') return this.normalize(job);
+
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.queueEntry.delete({ where: { jobId } }).catch(() => null);
+      await tx.printJob.update({
+        where: { id: jobId },
+        data: { status: 'COMPLETED', printedAt: new Date() },
+      });
+    });
+
+    const shopId = job.shopId ?? this.defaultShopId;
+    this.realtime.emitJobStatus(jobId, 'completed');
+    await this.queue.broadcastPositions(shopId).catch(() => null);
+    await this.audit.record({ action: 'job.admin_marked_printed', entityType: 'PrintJob', entityId: jobId });
+
+    const updated = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    return updated ? this.normalize(updated) : null;
+  }
+
+  /** Cancel a job, remove it from the queue, and mark it for refund.
+   *  Razorpay refund itself is handled out-of-band today; the local state
+   *  flips to CANCELLED with a failureReason so the refund dashboard can show it. */
+  async adminCancel(jobId: string, reason?: string) {
+    const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('job_not_found');
+    if (job.status === 'CANCELLED' || job.status === 'COMPLETED') {
+      throw new BadRequestException('job_already_finalized');
+    }
+
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.queueEntry.delete({ where: { jobId } }).catch(() => null);
+      await tx.printJob.update({
+        where: { id: jobId },
+        data: { status: 'CANCELLED', failureReason: reason ?? 'admin_cancelled' },
+      });
+    });
+
+    const shopId = job.shopId ?? this.defaultShopId;
+    this.realtime.emitJobStatus(jobId, 'cancelled');
+    await this.queue.broadcastPositions(shopId).catch(() => null);
+    await this.audit.record({
+      action: 'job.admin_cancelled',
+      entityType: 'PrintJob',
+      entityId: jobId,
+      after: { reason: reason ?? null },
+    });
+
+    const updated = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    return updated ? this.normalize(updated) : null;
+  }
+
+  /** Put a FAILED/QUEUED job back in line for a retry. Useful when the
+   *  agent erred transiently (printer offline, paper jam recovered). */
+  async adminRequeue(jobId: string) {
+    const job = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('job_not_found');
+    if (!['FAILED', 'QUEUED', 'CANCELLED', 'PRINTING'].includes(job.status)) {
+      throw new BadRequestException('job_not_requeueable');
+    }
+    if (!job.paidAt) throw new BadRequestException('job_not_paid');
+
+    const shopId = job.shopId ?? this.defaultShopId;
+
+    await this.prisma.printJob.update({
+      where: { id: jobId },
+      data: { status: 'QUEUED', failureReason: null },
+    });
+    await this.queue.enqueue(jobId, shopId, job.priority);
+
+    this.realtime.emitJobStatus(jobId, 'queued');
+
+    // Try to assign immediately if a capable printer is online.
+    const printer = await this.pickPrinter(shopId, { ...job, pages: job.pages });
+    if (printer) {
+      const downloadUrl = await this.files.download(job.fileKey);
+      this.realtime.assignJobToAgent(shopId, {
+        id: job.id,
+        fileUrl: downloadUrl,
+        fileName: job.fileName,
+        fileHash: job.fileHash ?? undefined,
+        printerId: printer.id,
+        copies: job.copies,
+        duplex: job.duplex,
+        color: job.color,
+        paperSize: job.paperSize,
+        pageRange: job.pageRange ?? undefined,
+      });
+    }
+
+    await this.audit.record({ action: 'job.admin_requeued', entityType: 'PrintJob', entityId: jobId });
+    const updated = await this.prisma.printJob.findUnique({ where: { id: jobId } });
+    return updated ? this.normalize(updated) : null;
+  }
 
   /**
    * Creates a new print job.

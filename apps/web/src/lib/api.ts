@@ -119,4 +119,6 @@ export const api = {
       colorPaise: number;
       duplexDiscountPct: number;
     }>('/settings/public'),
+  publicQueue: () =>
+    http<{ jobsInQueue: number; etaMinutes: number; acceptingJobs: boolean }>('/queue/public'),
 };

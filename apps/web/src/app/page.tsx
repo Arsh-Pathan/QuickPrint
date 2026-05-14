@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Printer, Upload, Smartphone, Zap, ShieldCheck, CheckCircle2, CloudUpload } from 'lucide-react';
+import { Printer, Upload, Smartphone, Zap, ShieldCheck, CheckCircle2, CloudUpload, Clock, PauseCircle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Container } from '@/components/Container';
 import { Logo } from '@/components/Logo';
+import { api } from '@/lib/api';
 
 export default function HomePage() {
   return (
@@ -38,6 +40,9 @@ export default function HomePage() {
               Student Login
             </Link>
           </div>
+
+          <QueueStatusPill />
+
 
           <div className="mt-16 flex items-center justify-center gap-8 grayscale opacity-50 select-none">
             <Logo size="sm" href={null} className="!gap-1.5 opacity-80" />
@@ -176,6 +181,46 @@ export default function HomePage() {
           </div>
         </Container>
       </section>
+    </div>
+  );
+}
+
+function QueueStatusPill() {
+  const { data } = useQuery({
+    queryKey: ['queue-public'],
+    queryFn: () => api.publicQueue(),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+    retry: 1,
+  });
+
+  if (!data) return null;
+
+  if (!data.acceptingJobs) {
+    return (
+      <div className="mt-8 inline-flex items-center gap-2 rounded-full bg-m3-yellow-container/30 px-4 py-2 text-sm font-bold text-m3-yellow border border-m3-yellow/20">
+        <PauseCircle size={14} />
+        Shop paused — try again soon
+      </div>
+    );
+  }
+
+  const { jobsInQueue, etaMinutes } = data;
+  if (jobsInQueue === 0) {
+    return (
+      <div className="mt-8 inline-flex items-center gap-2 rounded-full bg-m3-green-container/30 px-4 py-2 text-sm font-bold text-m3-green border border-m3-green/20">
+        <Clock size={14} />
+        No queue — print immediately
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8 inline-flex items-center gap-2 rounded-full bg-m3-primary-container/30 px-4 py-2 text-sm font-bold text-m3-primary border border-m3-primary/10">
+      <Clock size={14} />
+      <span className="tabular-nums">~{etaMinutes} min wait</span>
+      <span className="text-m3-primary/40 text-[10px] uppercase tracking-widest px-1">·</span>
+      <span className="tabular-nums">{jobsInQueue} in queue</span>
     </div>
   );
 }

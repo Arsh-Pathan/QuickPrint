@@ -67,6 +67,30 @@ export class PrintJobsController {
     return this.jobs.statsForAdmin(shopId);
   }
 
+  @Post('admin/:id/mark-printed')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  adminMarkPrinted(@Param('id') id: string) {
+    return this.jobs.adminMarkPrinted(id);
+  }
+
+  @Post('admin/:id/cancel')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  adminCancel(
+    @Param('id') id: string,
+    @Body() body: { reason?: string } = {},
+  ) {
+    return this.jobs.adminCancel(id, body.reason);
+  }
+
+  @Post('admin/:id/requeue')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  adminRequeue(@Param('id') id: string) {
+    return this.jobs.adminRequeue(id);
+  }
+
   @Get(':id')
   get(@Req() req: { user: { userId: string } }, @Param('id') id: string) {
     return this.jobs.findOwned(req.user.userId, id);
