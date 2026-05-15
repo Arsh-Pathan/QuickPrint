@@ -72,7 +72,31 @@
       "Bash(npx prisma *)",
       "Bash(npx --workspace apps/backend prisma db push --schema=apps/backend/prisma/schema.sqlite.prisma --skip-generate --accept-data-loss)",
       "Bash(npm --workspace @quickprint/backend exec -- prisma db push --schema=prisma/schema.sqlite.prisma --skip-generate --accept-data-loss)",
-      "Bash(npm --workspace @quickprint/backend run typecheck)"
+      "Bash(npm --workspace @quickprint/backend run typecheck)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('package.json'\\)\\); print\\('OK'\\); import json; print\\(json.dumps\\(d['build']['win'], indent=2\\)\\); print\\('---nsis---'\\); print\\(json.dumps\\(d['build']['nsis'], indent=2\\)\\)\")",
+      "Bash(grep -c -E '\\\\$\\\\{\\(If|IfNot\\)\\\\}' build/installer.nsh)",
+      "Bash(grep -c -E '\\\\$\\\\{EndIf\\\\}' build/installer.nsh)",
+      "Bash(grep -rn 'Push $R9\\\\|Pop $R9\\\\|StrCpy $R9\\\\|Exch $R9\\\\|ClearErrors' C:/Users/ArshPathan/Projects/Websites/QuickPrint/node_modules/app-builder-lib/templates/nsis/)",
+      "Bash(grep -n '$R9\\\\|$R0\\\\|$R1' C:/Users/ArshPathan/Projects/Websites/QuickPrint/node_modules/app-builder-lib/templates/nsis/include/installer.nsh)",
+      "Bash(grep -rn '$R9' C:/Users/ArshPathan/Projects/Websites/QuickPrint/node_modules/app-builder-lib/templates/nsis/)",
+      "Bash(grep -n '$R' C:/Users/ArshPathan/Projects/Websites/QuickPrint/node_modules/app-builder-lib/templates/nsis/include/installer.nsh)",
+      "Bash(grep -n '$R' C:/Users/ArshPathan/Projects/Websites/QuickPrint/node_modules/app-builder-lib/templates/nsis/include/installUtil.nsh)",
+      "Bash(grep -rn '$R9\\\\|FileHandle\\\\|FileOpen.*R9' C:/Users/ArshPathan/Projects/Websites/QuickPrint/node_modules/app-builder-lib/templates/nsis/include/)",
+      "Bash(grep -cE '\\\\$\\\\{\\(If|IfNot\\)\\\\}' build/installer.nsh)",
+      "Bash(grep -cE '\\\\$\\\\{EndIf\\\\}' build/installer.nsh)",
+      "Bash(git -C .claude/worktrees/agent-a7938c0b0b14cc892 diff .claude/settings.local.json)",
+      "Bash(git -C .claude/worktrees/agent-ace89761d20673c5b diff .claude/settings.local.json)",
+      "Bash(git worktree *)",
+      "Bash(python -c \"import cairosvg; print\\('cairosvg', cairosvg.__version__\\)\")",
+      "Bash(python -c \"from wand.image import Image; print\\('wand ok'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"import cairosvg; print\\('ok'\\)\")",
+      "Bash(python)",
+      "Bash(cp apps/web/public/logo.svg apps/admin/public/logo.svg)",
+      "WebFetch(domain:nsis.sourceforge.io)",
+      "Bash(git check-ignore *)",
+      "Bash(grep -nE \"^build|build/|build$\" .gitignore)"
     ]
   }
 }

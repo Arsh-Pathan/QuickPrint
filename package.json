@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "description": "Autonomous print management system for college campus print shops",
-  "author": "QuickPrint Team",
+  "author": {
+    "name": "Arsh Pathan",
+    "email": "mail.arsh.pathan@gmail.com"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -116,15 +119,27 @@
       "target": [
         "nsis"
       ],
-      "publisherName": "QuickPrint"
+      "icon": "build/icon.ico",
+      "signtoolOptions": {
+        "publisherName": "Arsh Pathan"
+      }
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "installerIcon": "apps/web/public/favicon.ico",
-      "uninstallerIcon": "apps/web/public/favicon.ico"
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "QuickPrint",
+      "menuCategory": "QuickPrint",
+      "uninstallDisplayName": "QuickPrint ${version}",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "license": "build/license.txt",
+      "include": "build/installer.nsh",
+      "warningsAsErrors": false
     }
   },
   "engines": {

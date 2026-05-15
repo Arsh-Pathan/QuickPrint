@@ -116,4 +116,8 @@ For a deep dive into the system design, sequence diagrams, and resilience strate
 
 ## 📄 License
 
-Proprietary - All Rights Reserved. Created for QuickPrint Team.
+Proprietary - All Rights Reserved.
+
+Copyright © 2026 Arsh Pathan <mail.arsh.pathan@gmail.com>.
+
+QuickPrint is closed-source software. See [`build/license.txt`](build/license.txt) for the full End User License Agreement that ships with the installer.

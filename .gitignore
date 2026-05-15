@@ -7,6 +7,15 @@ node_modules/
 dist/
 build/
 out/
+
+# Un-ignore electron-builder input resources that happen to live under build/
+# (the directory itself is otherwise used for transient build artifacts).
+!build/
+!build/icon.ico
+!build/icon.svg
+!build/icon-1024.png
+!build/license.txt
+!build/installer.nsh
 .next/
 .turbo/
 *.tsbuildinfo

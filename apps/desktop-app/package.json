@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "description": "QuickPrint Desktop Hardware & Admin Shell",
-  "author": "QuickPrint Team",
+  "author": {
+    "name": "Arsh Pathan",
+    "email": "mail.arsh.pathan@gmail.com"
+  },
   "main": "dist/main.js",
   "scripts": {
     "dev": "npm run build && electron .",

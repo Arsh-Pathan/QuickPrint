@@ -1,60 +1,63 @@
-<svg width="1600" height="1600" viewBox="120 80 1360 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" role="img" aria-label="QuickPrint">
+  <title>QuickPrint</title>
 
-  <!-- Main Text -->
-  <text 
-    x="800" 
-    y="320" 
-    text-anchor="middle"
-    font-family="Poppins, Montserrat, Arial, sans-serif"
-    font-size="280"
-    font-weight="700"
-    letter-spacing="8"
-    fill="#111111">
+  <!--
+    QuickPrint wordmark + icon
+    Palette: blue (#0B5FFF, #4D8BFF) on white background.
+    Designed for use in app headers, README, and as the icon source
+    for the Windows installer (after rasterisation to a square crop).
+  -->
 
-    LA<tspan fill="#E30613">X</tspan>MI
-  </text>
+  <defs>
+    <linearGradient id="qpGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#0B5FFF"/>
+      <stop offset="100%" stop-color="#4D8BFF"/>
+    </linearGradient>
+  </defs>
 
-  <!-- Enterprises Text -->
-  <text 
-    x="800" 
-    y="470" 
-    text-anchor="middle"
-    font-family="Poppins, Montserrat, Arial, sans-serif"
-    font-size="100"
-    font-weight="400"
-    letter-spacing="22"
-    fill="#222222">
+  <!-- =======================  Icon mark  ======================= -->
+  <!-- A stylised printer with a sheet of paper emerging.          -->
+  <!-- The group is anchored at (20,20) inside a 180x180 area.     -->
+  <g transform="translate(20,20)">
+    <!-- Speed lines (suggesting "quick") behind the printer -->
+    <rect x="-4"  y="74"  width="14" height="6" rx="3" fill="#4D8BFF" opacity="0.85"/>
+    <rect x="-14" y="90"  width="24" height="6" rx="3" fill="#4D8BFF" opacity="0.6"/>
+    <rect x="-4"  y="106" width="14" height="6" rx="3" fill="#4D8BFF" opacity="0.4"/>
 
-    ENTERPRISES
-  </text>
+    <!-- Printer top slot (paper feeder) -->
+    <rect x="35" y="40" width="90" height="38" rx="6" ry="6" fill="#FFFFFF"/>
 
-  <!-- Left Decorative Line -->
-  <line 
-    x1="300" 
-    y1="580" 
-    x2="720" 
-    y2="580"
-    stroke="#E30613"
-    stroke-width="6"
-    stroke-linecap="round"/>
+    <!-- Printer main body -->
+    <rect x="10" y="60" width="140" height="80" rx="14" ry="14" fill="url(#qpGrad)"/>
 
-  <!-- Center Diamond -->
-  <rect 
-    x="782" 
-    y="562"
-    width="36"
-    height="36"
-    transform="rotate(45 800 580)"
-    fill="#E30613"/>
+    <!-- White paper sheet emerging from the bottom -->
+    <rect x="35" y="95" width="90" height="58" rx="4" ry="4" fill="#FFFFFF"/>
 
-  <!-- Right Decorative Line -->
-  <line 
-    x1="880" 
-    y1="580" 
-    x2="1300" 
-    y2="580"
-    stroke="#E30613"
-    stroke-width="6"
-    stroke-linecap="round"/>
+    <!-- Lines on the paper (suggesting printed text) -->
+    <rect x="48" y="108" width="64" height="6" rx="2" fill="#0B5FFF"/>
+    <rect x="48" y="122" width="50" height="6" rx="2" fill="#4D8BFF"/>
+    <rect x="48" y="136" width="40" height="6" rx="2" fill="#4D8BFF"/>
 
+    <!-- Status indicator dot on the printer body -->
+    <circle cx="132" cy="76" r="5" fill="#FFFFFF"/>
+  </g>
+
+  <!-- =======================  Wordmark  ======================= -->
+  <g font-family="'Segoe UI', 'Inter', 'Helvetica Neue', Arial, sans-serif">
+    <text x="210" y="118"
+          font-size="78"
+          font-weight="500"
+          fill="#FFFFFF"
+          letter-spacing="-1">Quick Print</text>
+
+    <!-- Underline accent -->
+    <rect x="210" y="138" width="200" height="5" rx="2.5" fill="#4D8BFF"/>
+
+    <!-- Tagline -->
+    <text x="210" y="172"
+          font-size="20"
+          font-weight="500"
+          fill="#FFFFFF"
+          letter-spacing="3">AUTONOMOUS PRINT SHOP</text>
+  </g>
 </svg>
