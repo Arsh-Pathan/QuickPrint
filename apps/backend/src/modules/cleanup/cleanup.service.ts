@@ -29,7 +29,7 @@ export class CleanupService implements OnModuleInit {
     const candidates = await this.prisma.printJob.findMany({
       where: {
         createdAt: { lt: cutoff },
-        fileKey: { not: null, notIn: ['purged'] },
+        fileKey: { notIn: ['purged'] },
         status: { in: ['COMPLETED', 'CANCELLED', 'FAILED', 'CREATED'] },
       },
       select: { fileKey: true },
