@@ -159,7 +159,7 @@ export class PrintJobsService {
         pageRange: dto.settings.pageRange,
         priceTotalPaise: breakdown.totalPaise,
         priceBreakdown: JSON.stringify(breakdown) as any,
-        printerId: dto.printerId,
+        printerId: dto.printerId || undefined,
       },
     });
     return this.normalize(job);
