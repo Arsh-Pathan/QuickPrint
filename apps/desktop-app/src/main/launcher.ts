@@ -12,6 +12,47 @@ const HEALTH_REQUEST_TIMEOUT_MS = 2000;
 const SERVICE_READY_TIMEOUT_MS = 90_000;
 const SERVICE_RESTART_LIMIT = 2;
 
+// 0xC000013A — Windows STATUS_CONTROL_C_EXIT. Child processes (web/admin Next.js
+// servers) report this code when the OS or Electron shuts them down via Ctrl+C
+// signalling. It is a clean exit, not a crash, so we must not show the user the
+// "stopped unexpectedly. Restart QuickPrint." status when we see it.
+const WINDOWS_CTRL_C_EXIT = 1073807364;
+
+// Tunnel stderr lines matching this pattern are routine websocket disconnections
+// (browser tabs closing, Socket.IO churn). cloudflared writes them to stderr at
+// its own ERR level even though they are not actionable — we downgrade them to
+// debug so real warnings stay visible.
+const BENIGN_TUNNEL_STDERR = /Incoming request ended abruptly: context canceled/;
+
+// Additive-only SQLite migrations applied at every launch. Each entry is
+// idempotent: we check `PRAGMA table_info(<table>)` first and skip if the
+// column already exists. Add new entries when a new optional column lands in
+// `apps/backend/prisma/schema.sqlite.prisma`; never edit or remove an existing
+// entry — older installs may still need it. The list is intentionally limited
+// to ADD COLUMN with a default value, which is non-destructive on SQLite.
+interface AdditiveMigration {
+  table: string;
+  column: string;
+  ddl: string;
+}
+const ADDITIVE_MIGRATIONS: AdditiveMigration[] = [
+  {
+    table: 'Printer',
+    column: 'enabled',
+    ddl: 'ALTER TABLE "Printer" ADD COLUMN "enabled" BOOLEAN NOT NULL DEFAULT 0',
+  },
+  {
+    table: 'Printer',
+    column: 'category',
+    ddl: 'ALTER TABLE "Printer" ADD COLUMN "category" TEXT NOT NULL DEFAULT \'GENERAL\'',
+  },
+  {
+    table: 'Printer',
+    column: 'longPagesThreshold',
+    ddl: 'ALTER TABLE "Printer" ADD COLUMN "longPagesThreshold" INTEGER NOT NULL DEFAULT 20',
+  },
+];
+
 type ServiceName = 'backend' | 'admin' | 'web' | 'tunnel';
 
 interface ServiceConfig {
@@ -73,6 +114,7 @@ export class Launcher {
 
     this.setStatus('Synchronizing Database...');
     await this.initDatabase();
+    await this.syncDatabaseSchema();
 
     const backendConfig = this.getBackendConfig();
     await this.startManagedService(backendConfig);
@@ -268,7 +310,18 @@ export class Launcher {
       });
 
       proc.stdout?.on('data', (data) => log.info(`[tunnel] ${data.toString().trim()}`));
-      proc.stderr?.on('data', (data) => log.warn(`[tunnel] ${data.toString().trim()}`));
+      proc.stderr?.on('data', (data) => {
+        const line = data.toString().trim();
+        if (!line) return;
+        // cloudflared emits a noisy ERR line every time a browser websocket
+        // closes ("context canceled"). It is not actionable, so we downgrade
+        // it to debug — real tunnel errors still surface at warn.
+        if (BENIGN_TUNNEL_STDERR.test(line)) {
+          log.debug(`[tunnel] ${line}`);
+        } else {
+          log.warn(`[tunnel] ${line}`);
+        }
+      });
 
       proc.on('error', (err) => {
         log.error(`Launcher: Tunnel process error (check if binary exists): ${err.message}`);
@@ -308,6 +361,96 @@ export class Launcher {
     } catch (copyErr: any) {
       log.error(`Launcher: Critical failure - could not copy database template: ${copyErr.message}`);
       throw copyErr;
+    }
+  }
+
+  /**
+   * Brings the user's SQLite DB up to the schema the current backend expects.
+   *
+   * Why this exists: the packaged installer ships a `template.db` snapshot, and
+   * `initDatabase()` only copies it on first run. Any time we ship a release
+   * that adds a column, existing installs would keep running against the older
+   * schema and Prisma would throw "column X does not exist" on every query.
+   * Running additive ALTER TABLE statements at every launch — guarded by
+   * `PRAGMA table_info` so they're no-ops once applied — keeps every install
+   * self-healing without needing a Prisma CLI in the packaged tree.
+   *
+   * Only additive (ADD COLUMN with a default) changes belong here. Destructive
+   * migrations need a versioned ledger and are out of scope.
+   */
+  private async syncDatabaseSchema() {
+    // better-sqlite3 is already unpacked from app.asar and used by LocalQueue,
+    // so a require() at this point is safe. We deliberately avoid hoisting the
+    // import — keeping it inline means a packaging mishap fails loudly here and
+    // not at module load.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Database = require('better-sqlite3');
+
+    let db: any;
+    try {
+      db = new Database(this.dbPath);
+    } catch (err: any) {
+      log.error(`Launcher: schema sync — failed to open ${this.dbPath}: ${err.message}`);
+      throw err;
+    }
+
+    try {
+      // The backend will set WAL mode itself, but doing it here too is harmless
+      // and avoids journal-mode flapping if the file was just freshly copied.
+      db.pragma('journal_mode = WAL');
+
+      let applied = 0;
+      let skipped = 0;
+
+      // One transaction wraps every migration so partial application can't
+      // leave the DB half-migrated. better-sqlite3's transaction() returns a
+      // function that runs the body atomically.
+      const run = db.transaction(() => {
+        for (const migration of ADDITIVE_MIGRATIONS) {
+          const columns = db
+            .prepare(`PRAGMA table_info("${migration.table}")`)
+            .all() as Array<{ name: string }>;
+
+          if (columns.length === 0) {
+            // Table doesn't exist yet — this can happen on a brand-new install
+            // before the template copy finishes, but initDatabase() runs first
+            // so reaching this branch means the template is missing the table
+            // entirely. Log and skip rather than ALTER a nonexistent table.
+            log.warn(
+              `Launcher: schema sync — table "${migration.table}" not found; skipping ${migration.column}`,
+            );
+            skipped += 1;
+            continue;
+          }
+
+          const hasColumn = columns.some((c) => c.name === migration.column);
+          if (hasColumn) {
+            log.debug(
+              `Launcher: schema sync — ${migration.table}.${migration.column} already present`,
+            );
+            skipped += 1;
+            continue;
+          }
+
+          log.info(
+            `Launcher: schema sync — applying ${migration.table}.${migration.column}`,
+          );
+          db.exec(migration.ddl);
+          applied += 1;
+        }
+      });
+
+      run();
+      log.info(`Launcher: schema sync complete (applied=${applied} skipped=${skipped})`);
+    } catch (err: any) {
+      log.error(`Launcher: schema sync failed: ${err.message}`);
+      throw err;
+    } finally {
+      try {
+        db.close();
+      } catch {
+        // ignore — we're about to spawn the backend which will re-open the file
+      }
     }
   }
 
@@ -390,6 +533,16 @@ export class Launcher {
 
       if (this.stopping) {
         log.info(`Launcher: ${name} stopped during shutdown`, { code, signal });
+        return;
+      }
+
+      // On Windows, child Next.js processes routinely exit with
+      // STATUS_CONTROL_C_EXIT when the parent (Electron) closes them via
+      // Ctrl+C signalling. That is a clean shutdown the OS just happened to
+      // race with our own `stopping` flag — treat it as such instead of
+      // alarming the shop owner with "stopped unexpectedly. Restart QuickPrint."
+      if (code === WINDOWS_CTRL_C_EXIT) {
+        log.info(`Launcher: ${name} received Ctrl+C shutdown signal`, { code, signal });
         return;
       }
 
