@@ -95,6 +95,9 @@
       "node_modules/.bin",
       "**/node_modules/better-sqlite3/**/*",
       "**/node_modules/pdf-to-printer/**/*",
+      "**/node_modules/pdfjs-dist/**/*",
+      "**/node_modules/pdf-parse/**/*",
+      "**/node_modules/@napi-rs/**/*",
       "apps/desktop-app/bin/**/*"
     ],
     "extraResources": [

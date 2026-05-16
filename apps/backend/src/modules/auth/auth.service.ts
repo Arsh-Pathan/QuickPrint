@@ -76,7 +76,10 @@ export class AuthService {
   }
 
   private async pruneAnonymousUsers() {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Cutoff must exceed the JWT lifetime (default 7d) so a returning student's
+    // unexpired token can't reference a user we've already deleted — that
+    // produced FK violations on POST /api/print-jobs in the field.
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
     await this.prisma.user.deleteMany({
       where: {
         phone: null,

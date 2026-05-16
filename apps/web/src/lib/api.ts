@@ -9,9 +9,40 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Drop every place the token is cached on the client. Both `qp_token` (read by
+// `authHeaders`) and `qp_auth` (zustand-persisted store) must clear, otherwise
+// the next page reload re-hydrates the same dead token.
+function clearStoredAuth() {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.removeItem('qp_token'); } catch { /* private browsing */ }
+  try { window.localStorage.removeItem('qp_auth'); } catch { /* private browsing */ }
+}
+
+// Best-effort silent recovery: trade the stale token for a fresh anonymous one
+// so the caller can retry. Used when the backend reports the user the JWT
+// references no longer exists (anonymous-user pruning, DB reseed, etc.).
+async function reissueAnonymousToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  clearStoredAuth();
+  try {
+    const res = await fetch(`${BASE}/api/auth/anonymous`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { token?: string };
+    if (!data?.token) return null;
+    try { window.localStorage.setItem('qp_token', data.token); } catch { /* private browsing */ }
+    return data.token;
+  } catch {
+    return null;
+  }
+}
+
 const REQUEST_TIMEOUT = 30_000;
 
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
+async function http<T>(path: string, init?: RequestInit, _retry = false): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
   try {
@@ -24,6 +55,10 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
         ...init?.headers,
       },
     });
+    if (res.status === 401 && !_retry && path !== '/auth/anonymous') {
+      const fresh = await reissueAnonymousToken();
+      if (fresh) return http<T>(path, init, true);
+    }
     if (!res.ok) throw new Error(`api_${res.status}: ${await res.text()}`);
     return res.json() as Promise<T>;
   } finally {
