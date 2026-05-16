@@ -16,6 +16,7 @@ import { AgentModule } from './modules/agent/agent.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { CleanupModule } from './modules/cleanup/cleanup.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -36,6 +37,7 @@ import { HealthController } from './health.controller';
     SettingsModule,
     AuditLogModule,
     AdminModule,
+    CleanupModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
