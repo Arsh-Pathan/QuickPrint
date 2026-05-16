@@ -25,39 +25,65 @@ export class CleanupService implements OnModuleInit {
     const cutoff = new Date(Date.now() - this.FILE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     this.logger.log(`Starting binary cleanup for jobs older than ${cutoff.toISOString()}`);
 
-    // We only clean up binaries for jobs that are no longer active in the print queue.
-    // This includes COMPLETED, CANCELLED, FAILED, and CREATED (never paid) jobs.
-    // We leave PAID/QUEUED/PRINTING jobs alone even if they are old (though they shouldn't be).
-    const jobs = await this.prisma.printJob.findMany({
+    // 1. Find unique fileKeys from jobs that are old and inactive
+    const candidates = await this.prisma.printJob.findMany({
       where: {
         createdAt: { lt: cutoff },
         fileKey: { not: null },
         status: { in: ['COMPLETED', 'CANCELLED', 'FAILED', 'CREATED'] },
       },
-      select: { id: true, fileKey: true },
+      select: { fileKey: true },
     });
 
-    if (jobs.length === 0) {
+    if (candidates.length === 0) {
       this.logger.log('No old binaries found for cleanup');
       return;
     }
 
+    const candidateKeys = Array.from(new Set(candidates.map((c) => c.fileKey!)));
+
+    // 2. Filter out keys that are still referenced by ANY "active" or "recent" job.
+    // A job is active/recent if:
+    // - It is in a processing status (PAID, QUEUED, PRINTING)
+    // - OR it was created AFTER the cutoff (even if still in CREATED status)
+    const activeJobs = await this.prisma.printJob.findMany({
+      where: {
+        fileKey: { in: candidateKeys },
+        OR: [
+          { status: { in: ['PAID', 'QUEUED', 'PRINTING'] } },
+          { createdAt: { gte: cutoff } },
+        ],
+      },
+      select: { fileKey: true },
+    });
+
+    const activeKeys = new Set(activeJobs.map((j) => j.fileKey!));
+    const keysToDelete = candidateKeys.filter((k) => !activeKeys.has(k));
+
+    if (keysToDelete.length === 0) {
+      this.logger.log(
+        'All candidate binaries are still referenced by active or recent jobs; skipping deletion.',
+      );
+      return;
+    }
+
     let successCount = 0;
-    for (const job of jobs) {
+    for (const key of keysToDelete) {
       try {
-        if (job.fileKey) {
-          await this.files.delete(job.fileKey);
-          await this.prisma.printJob.update({
-            where: { id: job.id },
-            data: { fileKey: null }, // Mark file as purged in metadata
-          });
-          successCount++;
-        }
+        await this.files.delete(key);
+        // Mark as purged in all jobs that were using this key
+        await this.prisma.printJob.updateMany({
+          where: { fileKey: key },
+          data: { fileKey: null },
+        });
+        successCount++;
       } catch (e: any) {
-        this.logger.warn(`Failed to cleanup binary for job ${job.id}: ${e.message}`);
+        this.logger.warn(`Failed to cleanup binary ${key}: ${e.message}`);
       }
     }
 
-    this.logger.log(`Cleanup finished: ${successCount}/${jobs.length} binaries purged from storage`);
+    this.logger.log(
+      `Cleanup finished: ${successCount}/${keysToDelete.length} unique binaries purged from storage`,
+    );
   }
 }
