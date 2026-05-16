@@ -79,19 +79,21 @@ export class PaymentsService {
     const receipt = `batch_${jobIds[0]!.slice(0, 8)}_${Date.now()}`;
     const order = await this.rzp.createOrder(totalPaise, receipt);
 
-    for (const job of jobs) {
-      await this.prisma.payment.upsert({
-        where: { jobId: job.id },
-        create: {
-          jobId: job.id,
-          userId,
-          razorpayOrderId: order.orderId,
-          amountPaise: job.priceTotalPaise,
-          currency: order.currency,
-        },
-        update: { razorpayOrderId: order.orderId, amountPaise: job.priceTotalPaise },
-      });
-    }
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const job of jobs) {
+        await tx.payment.upsert({
+          where: { jobId: job.id },
+          create: {
+            jobId: job.id,
+            userId,
+            razorpayOrderId: order.orderId,
+            amountPaise: job.priceTotalPaise,
+            currency: order.currency,
+          },
+          update: { razorpayOrderId: order.orderId, amountPaise: job.priceTotalPaise },
+        });
+      }
+    });
 
     return { ...order, jobIds };
   }

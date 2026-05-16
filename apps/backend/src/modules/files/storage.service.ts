@@ -133,6 +133,21 @@ export class StorageService {
     if (this.driver === 's3') return { size: 0 };
     return fs.stat(this.resolveLocalPath(fileKey)).catch(() => null);
   }
+  
+  async delete(fileKey: string): Promise<void> {
+    if (this.driver === 's3' && this.s3Client && this.s3Bucket) {
+      const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+      await this.s3Client.send(new DeleteObjectCommand({
+        Bucket: this.s3Bucket,
+        Key: fileKey,
+      }));
+      return;
+    }
+    const abs = this.resolveLocalPath(fileKey);
+    await fs.unlink(abs).catch((e) => {
+      this.logger.warn(`Failed to delete local file ${fileKey}: ${e.message}`);
+    });
+  }
 
   private sign(fileKey: string, op: 'put' | 'get', expiresAt: number): string {
     return createHmac('sha256', this.hmacKey)

@@ -39,8 +39,12 @@ export class QueueService {
 
   async enqueue(jobId: string, shopId: string, priority = 0) {
     const entry = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const count = await tx.queueEntry.count({ where: { shopId } });
-      const position = count + 1;
+      const last = await tx.queueEntry.findFirst({
+        where: { shopId },
+        orderBy: { position: 'desc' },
+      });
+      const position = (last?.position ?? 0) + 1;
+      
       return tx.queueEntry.upsert({
         where: { jobId },
         create: { jobId, shopId, position, priority },

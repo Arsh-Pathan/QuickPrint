@@ -34,4 +34,8 @@ export class FilesService {
   download(fileKey: string) {
     return this.storage.createSignedDownloadUrl(fileKey);
   }
+
+  delete(fileKey: string) {
+    return this.storage.delete(fileKey);
+  }
 }
