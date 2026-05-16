@@ -94,7 +94,7 @@ export class StorageService {
 
     const expiresAt = Date.now() + expiresIn * 1000;
     const token = this.sign(fileKey, 'get', expiresAt);
-    return `${this.publicBase}/api/files/local-download?key=${encodeURIComponent(fileKey)}&exp=${expiresAt}&sig=${token}`;
+    return `/api/files/local-download?key=${encodeURIComponent(fileKey)}&exp=${expiresAt}&sig=${token}`;
   }
 
   verifyToken(fileKey: string, op: 'put' | 'get', expiresAt: number, token: string): boolean {

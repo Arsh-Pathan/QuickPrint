@@ -11,7 +11,7 @@ function getSocket() {
   if (shared) shared.close();
   const token = typeof window !== 'undefined' ? window.localStorage.getItem('qp_token') : null;
   shared = io(`${WS}${WS_NAMESPACE}`, {
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'],
     path: '/socket.io',
     auth: token ? { token } : undefined,
     reconnection: true,

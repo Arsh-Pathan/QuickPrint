@@ -42,6 +42,7 @@ async function bootstrap() {
   app.enableCors({
     origin: config.get<string>('CORS_ORIGINS')?.split(',') ?? '*',
     credentials: true,
+    exposedHeaders: ['x-rtb-fingerprint-id', 'request-id'],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('api');

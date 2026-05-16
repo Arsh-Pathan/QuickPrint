@@ -96,7 +96,10 @@
       "Bash(cp apps/web/public/logo.svg apps/admin/public/logo.svg)",
       "WebFetch(domain:nsis.sourceforge.io)",
       "Bash(git check-ignore *)",
-      "Bash(grep -nE \"^build|build/|build$\" .gitignore)"
+      "Bash(grep -nE \"^build|build/|build$\" .gitignore)",
+      "Bash(git push *)",
+      "Bash(sqlite3 apps/backend/prisma/template.db \".schema Printer\")",
+      "Bash(sqlite3 apps/backend/prisma/template.db \".schema\")"
     ]
   }
 }
