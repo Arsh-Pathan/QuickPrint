@@ -163,6 +163,7 @@ export class Launcher {
         NODE_ENV: 'production',
         SHOP_ID: 'shop_local_dev',
         QUICKPRINT_USER_DATA: app.getPath('userData'),
+        LOCAL_STORAGE_DIR: path.join(app.getPath('userData'), 'storage'),
         PRISMA_QUERY_ENGINE_LIBRARY: this.prismaQueryEnginePath || '',
         PUBLIC_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}`,
         CORS_ORIGINS: `http://127.0.0.1:${ADMIN_PORT},http://127.0.0.1:${WEB_PORT}`,
