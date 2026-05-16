@@ -29,7 +29,7 @@ export class CleanupService implements OnModuleInit {
     const candidates = await this.prisma.printJob.findMany({
       where: {
         createdAt: { lt: cutoff },
-        fileKey: { not: null },
+        fileKey: { not: null, notIn: ['purged'] },
         status: { in: ['COMPLETED', 'CANCELLED', 'FAILED', 'CREATED'] },
       },
       select: { fileKey: true },
@@ -74,7 +74,7 @@ export class CleanupService implements OnModuleInit {
         // Mark as purged in all jobs that were using this key
         await this.prisma.printJob.updateMany({
           where: { fileKey: key },
-          data: { fileKey: null },
+          data: { fileKey: 'purged' },
         });
         successCount++;
       } catch (e: any) {
