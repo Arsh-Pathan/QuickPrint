@@ -21,12 +21,12 @@ export default function HomePage() {
             <Zap size={14} className="fill-current" />
             <span>Now faster than ever with UPI checkout</span>
           </div>
-          
+
           <h1 className="m3-display-l mb-6 text-m3-ink tracking-tight">
-            Printing for Students,<br /> 
+            Printing for Students,<br />
             <span className="text-m3-primary">Refined for Speed.</span>
           </h1>
-          
+
           <p className="mx-auto max-w-2xl text-lg sm:text-xl text-m3-ink-muted leading-relaxed mb-12">
             The smartest way to print on campus. Upload any document, pay instantly via UPI, and pick up your prints in seconds.
           </p>
@@ -76,7 +76,7 @@ export default function HomePage() {
             {/* Step 2 */}
             <div className="m3-card p-8 relative z-10">
               <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-m3-green text-white shadow-elev-2">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
               </div>
               <h3 className="m3-headline-s mb-3">2. Pay</h3>
               <p className="text-m3-ink-muted leading-relaxed">
@@ -96,9 +96,6 @@ export default function HomePage() {
               </p>
               <div className="absolute top-4 right-4 h-12 w-12 flex items-center justify-center rounded-full bg-m3-yellow-container/30 text-m3-yellow font-display font-bold text-xl opacity-20">03</div>
             </div>
-
-            {/* Connector Lines (desktop only) */}
-            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-m3-outline-variant -z-0 -translate-y-1/2" />
           </div>
         </Container>
       </section>
@@ -110,7 +107,7 @@ export default function HomePage() {
             <div>
               <span className="m3-section-eyebrow mb-3 block">Why QuickPrint</span>
               <h2 className="m3-display-m mb-8 text-m3-ink leading-tight">Built for the campus hustle.</h2>
-              
+
               <div className="space-y-8">
                 {[
                   { icon: Smartphone, title: 'Mobile First', desc: 'No computer needed. Upload and pay directly from your smartphone.' },
@@ -134,21 +131,21 @@ export default function HomePage() {
               <div className="aspect-square rounded-3xl bg-m3-surface-container shadow-elev-1 overflow-hidden animate-[float_6s_ease-in-out_infinite]">
                 {/* Mock UI illustration / Image */}
                 <div className="absolute inset-0 bg-gradient-to-br from-m3-primary/10 to-m3-primary-container/40 p-12">
-                   <div className="h-full w-full rounded-2xl bg-white shadow-elev-4 p-6 border border-m3-outline-variant relative overflow-hidden">
-                      <div className="shimmer-bar" />
-                      <div className="flex items-center justify-between mb-8">
-                        <div className="h-6 w-32 bg-m3-surface-container rounded-full" />
-                        <div className="h-10 w-10 rounded-full bg-m3-primary-container" />
+                  <div className="h-full w-full rounded-2xl bg-white shadow-elev-4 p-6 border border-m3-outline-variant relative overflow-hidden">
+                    <div className="shimmer-bar" />
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="h-6 w-32 bg-m3-surface-container rounded-full" />
+                      <div className="h-10 w-10 rounded-full bg-m3-primary-container" />
+                    </div>
+                    <div className="space-y-4">
+                      <div className="h-32 w-full bg-m3-surface-container-low rounded-xl border border-dashed border-m3-outline flex items-center justify-center">
+                        <CloudUpload size={32} className="text-m3-outline animate-bounce" />
                       </div>
-                      <div className="space-y-4">
-                        <div className="h-32 w-full bg-m3-surface-container-low rounded-xl border border-dashed border-m3-outline flex items-center justify-center">
-                          <CloudUpload size={32} className="text-m3-outline animate-bounce" />
-                        </div>
-                        <div className="h-4 w-2/3 bg-m3-surface-container rounded-full" />
-                        <div className="h-4 w-full bg-m3-surface-container-low rounded-full" />
-                        <div className="mt-8 h-12 w-full bg-m3-primary rounded-full shadow-elev-2 flex items-center justify-center text-white font-bold text-sm">Pay ₹20.00</div>
-                      </div>
-                   </div>
+                      <div className="h-4 w-2/3 bg-m3-surface-container rounded-full" />
+                      <div className="h-4 w-full bg-m3-surface-container-low rounded-full" />
+                      <div className="mt-8 h-12 w-full bg-m3-primary rounded-full shadow-elev-2 flex items-center justify-center text-white font-bold text-sm">Pay ₹20.00</div>
+                    </div>
+                  </div>
                 </div>
               </div>
               {/* Decorative elements */}

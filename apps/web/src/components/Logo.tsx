@@ -20,28 +20,40 @@ export function Logo({ size = 'md', mono = false, href = '/', className }: LogoP
     <span className={clsx('inline-flex items-center', s.gap, className)}>
       <span
         className={clsx(
-          'relative inline-flex items-center justify-center rounded-xl',
+          'relative',
           s.box,
-          mono ? 'bg-white text-m3-ink' : 'bg-m3-primary text-m3-on-primary',
         )}
-        style={{ boxShadow: mono ? 'none' : 'var(--elev-1)' }}
       >
-        {/* Custom geometric "Q" / paper-stack mark */}
-        <svg
-          viewBox="0 0 24 24"
-          width={s.icon}
-          height={s.icon}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <rect x="4" y="6" width="13" height="13" rx="2.5" />
-          <path d="M9 6V4.5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 19 4.5v9a1.5 1.5 0 0 1-1.5 1.5H17" />
-          <circle cx="10.5" cy="12.5" r="1.6" fill="currentColor" stroke="none" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="QuickPrint">
+          <title>QuickPrint</title>
+
+          <defs>
+            <linearGradient id="qpGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#0B5FFF" />
+              <stop offset="100%" stop-color="#4D8BFF" />
+            </linearGradient>
+          </defs>
+
+          <g transform="translate(20,20)">
+            <rect x="-4" y="60" width="14" height="6" rx="3" fill="#4D8BFF" opacity="0.85" />
+            <rect x="-14" y="76" width="24" height="6" rx="3" fill="#4D8BFF" opacity="0.6" />
+            <rect x="-4" y="92" width="14" height="6" rx="3" fill="#4D8BFF" opacity="0.4" />
+
+            <rect x="35" y="24" width="90" height="38" rx="6" ry="6" fill="#e9e9e9ff" />
+
+            <rect x="10" y="44" width="140" height="80" rx="14" ry="14" fill="url(#qpGrad)" />
+
+            <rect x="35" y="85" width="90" height="58" rx="4" ry="4" fill="#e9e9e9ff" />
+
+            <rect x="48" y="94" width="64" height="6" rx="2" fill="#0B5FFF" />
+            <rect x="48" y="108" width="50" height="6" rx="2" fill="#4D8BFF" />
+            <rect x="48" y="122" width="40" height="6" rx="2" fill="#4D8BFF" />
+
+            <circle cx="132" cy="76" r="5" fill="#ffffff" />
+          </g>
+
         </svg>
+
       </span>
       <span
         className={clsx(
